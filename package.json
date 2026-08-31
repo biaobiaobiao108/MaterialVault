@@ -4,13 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "go run ./cmd/server",
+    "dev": "bun --watch server/index.ts",
     "dev:ui": "vite",
-    "build:ui": "vite build",
-    "build:server": "go build -o ./bin/server.exe ./cmd/server",
-    "build": "vite build && go build -o ./bin/server.exe ./cmd/server",
-    "start": "./bin/server.exe",
-    "db:seed": "go run ./cmd/server --seed"
+    "build": "vite build",
+    "start": "bun server/index.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.67.1",

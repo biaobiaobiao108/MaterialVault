@@ -6,7 +6,7 @@
 
 **专为视频创作者打造的：素材收件箱 + 网页与视频证据归档库 + 极速标签检索系统**
 
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://go.dev)
+[![Bun Version](https://img.shields.io/badge/Bun-1.2+-fbf0df?logo=bun)](https://bun.sh)
 [![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?logo=tailwind-css)](https://tailwindcss.com)
 [![SQLite FTS5](https://img.shields.io/badge/SQLite-FTS5-003B57?logo=sqlite)](https://sqlite.org)
@@ -37,7 +37,7 @@
   - 智能解决视频大卡片与纯文本小卡片混排时的行高空白问题；
   - 按左右轮流由新到旧紧凑堆叠排版，在桌面端（3 列）、平板端（2 列）与移动端（1 列）自适应流畅呈现。
 - 📝 **Markdown 富文本排版渲染与双模式切换**：
-  - 详情弹窗内置现代 GFM Markdown 渲染引擎，支持标题、列表、表格、代码块与引用块排版；
+  - 卡片与详情弹窗全面内置现代 GFM Markdown 渲染引擎，支持标题、列表、表格、代码块与引用块排版；
   - 提供**「排版预览 / 查看源码」**一键双模式切换与 Markdown 证据文件直接下载。
 - 🏷️ **智能 `#标签` 自动提取与双向关联**：
   - 在输入框键入 `#` 即时弹出已有标签联想浮层，按 `Tab` / `Enter` 快捷上屏；
@@ -46,12 +46,12 @@
 - 🔍 **毫秒级防抖全文检索与多维过滤**：
   - 基于 SQLite FTS5 原生虚拟表与触发器，搜索框 250ms 防抖即时响应；
   - 动态展示当前生效的过滤条件胶囊条，支持一键移除或重置。
-- 📦 **纯原生 Go 高性能内核与单二进制分发**：
-  - 后端采用纯 Go 原生实现（零 CGO 依赖），常驻内存低至 **10MB ~ 25MB**；
-  - 采用 SHA-256 原生内容散列进行资产物理去重；
-  - 一键编译输出独立单可执行文件（`.exe` / Linux / Mac），用户无需安装 Node/Bun 环境，双击直接运行。
+- ⚡ **原生 Bun 全栈内核与零外部依赖**：
+  - 后端全面采用 TypeScript + Bun 原生运行时（`Bun.serve` + `bun:sqlite` + `Bun.CryptoHasher`），**常驻内存仅约 15MB**；
+  - 原生 C 绑定 SQLite 极速引擎，原生 SHA-256 物理资产去重；
+  - 零额外后端依赖，极速纯粹。
 - 🛡️ **网页证据自动归档 (Archive Resilience)**：
-  - 后台异步 Goroutine 流水线自动提取网页 Title、Meta 与 Clean Markdown 正文；
+  - 后台异步流水线自动提取网页 Title、Meta 与 Clean Markdown 正文；
   - 遇到防爬/登录墙导致抓取失败时，**素材本体与笔记绝对不丢失**，提供显式的重新抓取入口。
 - 🎨 **温润编辑部 UI 体系**：
   - Stone 纸张灰阶搭配 Rose 主强调色，全自动监听并实时自适应系统深浅色昼夜模式。
@@ -60,14 +60,14 @@
 
 ## 🛠️ 技术架构
 
-本项目采用 **Go 原生单体后端 + React 18 SPA 前端** 现代架构：
+本项目采用 **TypeScript + Bun 原生全栈单体** 现代架构：
 
 | 领域 | 技术选型 | 说明 |
 | :--- | :--- | :--- |
-| **运行时与服务端** | `Go >= 1.22` (原生 `net/http`) | 纯原生高性能 HTTP 路由、异步 Goroutine 流水线与单二进制分发 |
-| **数据库** | `modernc.org/sqlite` | 纯 Go 编写、无 CGO 依赖的嵌入式 SQLite，位于 `./data/vault.db` |
+| **运行时与服务端** | `Bun >= 1.2` (`Bun.serve`) | 纯原生高性能 HTTP 路由、SPA 静态资源托管与毫秒级热重载 |
+| **数据库** | `bun:sqlite` | 原生 C 绑定嵌入式 SQLite，位于 `./data/vault.db` |
 | **全文检索** | `SQLite FTS5` (unicode61) | 毫秒级标题、备注、URL 及正文全文检索，三向触发器自动同步 |
-| **视频与网页提取** | B站/YouTube 专用解析 + `go-readability` | 原生视频封面下载、Clean Markdown 提取与证据归档 |
+| **资产与哈希去重** | `Bun.CryptoHasher("sha256")` + `Bun.file/write` | 原生零拷贝 SHA-256 物理资产去重存储 |
 | **前端框架** | `React 18` + `TypeScript` + `Vite` | 现代极速单页应用，位于 `./src` |
 | **数据请求** | `@tanstack/react-query` | 声明式数据获取与实时缓存管理 |
 | **富文本与排版** | `react-markdown` + `remark-gfm` | 现代化 Markdown 渲染与 GFM 表格/清单支持 |
@@ -79,11 +79,7 @@
 
 ### 1. 运行开发模式
 
-运行完整应用（Go 后端启动在 `3000` 端口，自动托管 API 与前端静态资源）：
-
 ```bash
-go run ./cmd/server
-# 或使用 npm / bun 别名:
 bun run dev
 ```
 
@@ -98,18 +94,14 @@ bun run dev:ui
 
 ### 3. 构建全量生产版本
 
-执行一键构建（前端 Vite 打包 + Go 后端单一可执行程序输出至 `./bin/server.exe`）：
-
 ```bash
 bun run build
 ```
 
-### 4. 独立运行
-
-生产环境下直接运行编译生成的单一二进制文件，**机器无需安装 Node/Bun 环境**：
+### 4. 运行生产服务
 
 ```bash
-./bin/server.exe
+bun start
 ```
 
 ---
@@ -132,14 +124,12 @@ bun run build
 
 ```text
 MaterialVault/
-├── cmd/
-│   └── server/              # Go 服务端主入口 (main.go)
-├── internal/                # Go 内部业务与底层核心包
-│   ├── config/              # 运行配置与自动路径识别 (config.go)
-│   ├── db/                  # 数据层 (db.go, models.go, seed.go)
-│   ├── handlers/            # REST API 路由处理器 (items, tags, search, assets, uploads, stats)
-│   ├── services/            # 核心业务 (capture.go, video.go, storage.go, search.go)
-│   └── utils/               # 响应封装、文本与 URL 清洗
+├── server/                  # Bun 原生服务端源码
+│   ├── index.ts             # 服务端主入口 (Bun.serve 路由分发与静态托管)
+│   ├── db.ts                # 数据库核心 (bun:sqlite 初始化、表结构与 FTS5 触发器)
+│   ├── utils.ts             # 响应包装、URL 清洗与标签提取
+│   ├── routes/              # REST API 路由处理器 (items, tags, search, uploads, assets, stats)
+│   └── services/            # 核心业务 (capture.ts, video.ts, storage.ts)
 ├── data/                    # 本地数据目录 (已 gitignore)
 │   ├── vault.db             # SQLite 数据库与 FTS5 虚拟表
 │   └── assets/              # SHA-256 二进制文件去重存储池
@@ -152,8 +142,6 @@ MaterialVault/
 │   ├── lib/                 # 工具库 (api.ts, theme.tsx, types.ts, utils.ts)
 │   ├── App.tsx              # 路由配置
 │   └── index.css            # 基础样式与 Light/Dark 设计令牌
-├── go.mod
-├── go.sum
 ├── package.json
 └── tsconfig.json
 ```
