@@ -77,16 +77,7 @@ export async function processUrlItem(itemId: string, targetUrl: string) {
     const html = await response.text();
     await logStep('fetch_html', 'success', `HTML 获取成功 (${(html.length / 1024).toFixed(1)} KB)`);
 
-    // 3. Save Raw HTML Asset
-    await saveAssetFile({
-      itemId,
-      kind: 'html',
-      mimeType: 'text/html',
-      fileName: 'page.html',
-      data: html,
-    });
-
-    // 4. Extract Article & Metadata with Readability
+    // 3. Extract Article & Metadata with Readability
     await logStep('parse_content', 'pending', '正在解析网页内容与正文');
     const { document } = parseHTML(html);
 

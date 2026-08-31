@@ -17,7 +17,7 @@ export async function saveAssetFile({
   data,
 }: {
   itemId: string;
-  kind: 'original' | 'screenshot' | 'html' | 'markdown' | 'pdf' | 'thumbnail';
+  kind: 'original' | 'screenshot' | 'markdown' | 'pdf' | 'thumbnail';
   mimeType: string;
   fileName: string;
   data: Buffer | Uint8Array | string;

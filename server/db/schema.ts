@@ -39,7 +39,7 @@ export const itemTags = sqliteTable('item_tags', {
 export const assets = sqliteTable('assets', {
   id: text('id').primaryKey(),
   itemId: text('item_id').notNull().references(() => items.id, { onDelete: 'cascade' }),
-  kind: text('kind', { enum: ['screenshot', 'html', 'markdown', 'original', 'thumbnail'] }).notNull(),
+  kind: text('kind', { enum: ['screenshot', 'markdown', 'original', 'thumbnail'] }).notNull(),
   mimeType: text('mime_type').notNull(),
   fileName: text('file_name').notNull(),
   fileSize: integer('file_size').notNull(),

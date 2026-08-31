@@ -32,7 +32,7 @@ export interface ItemDetailModalProps {
 }
 
 export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProps) {
-  const [activeTab, setActiveTab] = useState<'content' | 'markdown' | 'html' | 'assets' | 'logs'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'markdown' | 'assets' | 'logs'>('content');
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState('');
   const [editingNote, setEditingNote] = useState(false);
@@ -129,7 +129,6 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
   if (!isOpen) return null;
 
   const markdownAsset = item?.assets?.find((a) => a.kind === 'markdown');
-  const htmlAsset = item?.assets?.find((a) => a.kind === 'html');
   const imageAsset = item?.assets?.find((a) => a.kind === 'original' && a.mimeType.startsWith('image/')) || item?.assets?.find((a) => a.kind === 'screenshot');
 
   const unlinkedTags = tagsData?.tags.filter((t) => !item?.tags?.some((it) => it.id === t.id)) || [];
@@ -418,19 +417,6 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
                     Markdown 正文
                   </button>
                 )}
-                {htmlAsset && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('html')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                      activeTab === 'html'
-                        ? 'bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100'
-                        : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-200'
-                    }`}
-                  >
-                    原始 HTML 证据
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => setActiveTab('assets')}
@@ -499,30 +485,6 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
                   <pre className="text-xs leading-relaxed font-mono text-stone-800 dark:text-stone-200 whitespace-pre-wrap max-h-96 overflow-y-auto">
                     {item.contentText}
                   </pre>
-                </div>
-              )}
-
-              {/* Tab 3: HTML Asset */}
-              {activeTab === 'html' && htmlAsset && (
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-stone-500">原始 HTML 快照归档 ({formatBytes(htmlAsset.fileSize)})</span>
-                    <a
-                      href={`/api/assets/${htmlAsset.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-rose-600 hover:underline"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      <span>在独立标签页中打开原始快照</span>
-                    </a>
-                  </div>
-                  <iframe
-                    src={`/api/assets/${htmlAsset.id}`}
-                    title="HTML Preview"
-                    sandbox="allow-same-origin"
-                    className="w-full h-80 rounded-xl border border-stone-200 dark:border-stone-800 bg-white"
-                  />
                 </div>
               )}
 

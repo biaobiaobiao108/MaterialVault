@@ -37,7 +37,7 @@
   - 采用 `Bun.CryptoHasher` 极速 SHA-256 散列，配合 `Bun.file` / `Bun.write` 零拷贝 I/O；
   - 支持全局 `Ctrl + K` / `/` 快速激活全文检索与全库一键 JSON 备份导出。
 - 🛡️ **网页证据自动归档 (Archive Resilience)**：
-  - 后台自动提取网页 Title、Meta、正文 Markdown 与原始 HTML 快照；
+  - 后台自动提取网页 Title、Meta 与正文 Clean Markdown；
   - 遇到防爬/登录墙导致抓取失败时，**素材本体与笔记绝对不丢失**，提供显式的重新抓取入口。
 - 🔍 **毫秒级 SQLite FTS5 全文索引**：
   - 零外部依赖，毫秒级检索半年前收集的所有标题、备注、URL 及完整网页正文；

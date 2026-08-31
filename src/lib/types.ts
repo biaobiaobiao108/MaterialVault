@@ -1,7 +1,7 @@
 export type ItemType = 'url' | 'note' | 'image' | 'document' | 'video';
 export type OrganizationStatus = 'inbox' | 'organized' | 'archived';
 export type ProcessingStatus = 'pending' | 'processing' | 'ready' | 'failed';
-export type AssetKind = 'screenshot' | 'html' | 'markdown' | 'original' | 'thumbnail';
+export type AssetKind = 'screenshot' | 'markdown' | 'original' | 'thumbnail';
 
 export interface Tag {
   id: string;
