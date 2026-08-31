@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Inbox,
   Layers,
@@ -16,7 +16,27 @@ import { cn } from '../lib/utils';
 
 export function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { preference, setPreference, isDark } = useTheme();
+
+  // Global Keyboard Shortcut: Ctrl+K or / to open Search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        navigate('/search');
+      } else if (e.key === '/' && !isInput) {
+        e.preventDefault();
+        navigate('/search');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigate]);
 
   // Fetch stats for live Inbox count badge
   const { data: stats } = useQuery({
@@ -101,7 +121,11 @@ export function Layout() {
                   <Icon className="h-4.5 w-4.5 shrink-0" />
                   <span>{item.label}</span>
                 </div>
-                {typeof item.badge === 'number' && (
+                {item.to === '/search' ? (
+                  <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono text-stone-400 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
+                    Ctrl K
+                  </kbd>
+                ) : typeof item.badge === 'number' && (
                   <span
                     className={cn(
                       'px-2 py-0.5 rounded-full text-[11px] font-mono tabular-nums font-semibold',

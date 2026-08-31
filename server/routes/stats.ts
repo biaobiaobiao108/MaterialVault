@@ -31,3 +31,40 @@ export async function handleStats(req: Request, url: URL): Promise<Response> {
     topDomains: domainCounts,
   });
 }
+
+// Full Database JSON Backup Export
+export async function handleBackup(req: Request): Promise<Response> {
+  if (req.method !== 'GET') {
+    return json({ error: 'Method Not Allowed' }, 405);
+  }
+
+  const items = sqlite.prepare(`SELECT * FROM items ORDER BY created_at DESC`).all();
+  const tags = sqlite.prepare(`SELECT * FROM tags ORDER BY name ASC`).all();
+  const itemTags = sqlite.prepare(`SELECT * FROM item_tags`).all();
+  const assets = sqlite.prepare(`SELECT id, item_id, kind, mime_type, file_name, file_size, storage_path, sha256, created_at FROM assets`).all();
+
+  const backupData = {
+    version: '1.0',
+    exportedAt: new Date().toISOString(),
+    stats: {
+      itemCount: items.length,
+      tagCount: tags.length,
+      assetCount: assets.length,
+    },
+    tags,
+    items,
+    itemTags,
+    assets,
+  };
+
+  const jsonString = JSON.stringify(backupData, null, 2);
+  const fileName = `material-vault-backup-${new Date().toISOString().split('T')[0]}.json`;
+
+  return new Response(jsonString, {
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${fileName}"`,
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
+}

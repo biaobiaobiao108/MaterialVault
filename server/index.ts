@@ -61,6 +61,11 @@ const server = Bun.serve({
           return await handleStats(req, url);
         }
 
+        if (apiPath === 'backup') {
+          const { handleBackup } = await import('./routes/stats');
+          return await handleBackup(req);
+        }
+
         return json({ error: 'API route not found' }, 404);
       } catch (err: any) {
         console.error(`[Server Error] ${req.method} ${pathname}:`, err);

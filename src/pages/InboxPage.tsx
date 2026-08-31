@@ -6,54 +6,103 @@ import { QuickCapture } from '../components/QuickCapture';
 import { ItemCard } from '../components/ItemCard';
 import { BatchActionBar } from '../components/BatchActionBar';
 import { ItemDetailModal } from '../components/ItemDetailModal';
-import { Inbox, CheckCircle2, Sparkles, RefreshCw, Filter } from 'lucide-react';
+import { RefreshCw, Tag as TagIcon, X } from 'lucide-react';
 import { useToast } from '../components/ui/Toast';
 
 export function InboxPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>('');
+  const [tagFilter, setTagFilter] = useState<string>('');
 
   const toast = useToast();
   const queryClient = useQueryClient();
 
-  const { data, isLoading, isRefetching } = useQuery({
-    queryKey: ['items', 'inbox', typeFilter],
+  const { data: tagsData } = useQuery({
+    queryKey: ['tags'],
+    queryFn: api.getTags,
+  });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['items', 'inbox', typeFilter, tagFilter],
     queryFn: () =>
       api.getItems({
         status: 'inbox',
         type: (typeFilter || undefined) as any,
+        tagId: tagFilter || undefined,
       }),
     refetchInterval: 6000,
   });
 
   const batchMutation = useMutation({
-    mutationFn: api.batchItems,
+    mutationFn: api.batchAction,
     onSuccess: () => {
       toast.success('批量操作已完成');
       setSelectedIds([]);
       queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
     },
     onError: (err: any) => toast.error(err.message || '批量操作失败'),
   });
 
+  // Optimistic toggle favorite
   const toggleFavoriteMutation = useMutation({
     mutationFn: ({ id, favorite }: { id: string; favorite: boolean }) =>
       api.updateItem(id, { favorite }),
-    onSuccess: () => {
+    onMutate: async ({ id, favorite }) => {
+      await queryClient.cancelQueries({ queryKey: ['items'] });
+      const previousData = queryClient.getQueryData(['items', 'inbox', typeFilter, tagFilter]);
+      queryClient.setQueryData(['items', 'inbox', typeFilter, tagFilter], (old: any) => {
+        if (!old?.items) return old;
+        return {
+          ...old,
+          items: old.items.map((it: Item) => (it.id === id ? { ...it, favorite } : it)),
+        };
+      });
+      return { previousData };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['items', 'inbox', typeFilter, tagFilter], context.previousData);
+      }
+      toast.error('操作失败');
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
     },
   });
 
+  // Optimistic toggle organize
   const toggleOrganizedMutation = useMutation({
     mutationFn: ({ id, currentStatus }: { id: string; currentStatus: string }) =>
       api.updateItem(id, {
         organizationStatus: currentStatus === 'organized' ? 'inbox' : 'organized',
       }),
+    onMutate: async ({ id, currentStatus }) => {
+      await queryClient.cancelQueries({ queryKey: ['items'] });
+      const previousData = queryClient.getQueryData(['items', 'inbox', typeFilter, tagFilter]);
+      queryClient.setQueryData(['items', 'inbox', typeFilter, tagFilter], (old: any) => {
+        if (!old?.items) return old;
+        // In inbox page, marking as organized removes it from view
+        return {
+          ...old,
+          items: old.items.filter((it: Item) => it.id !== id),
+        };
+      });
+      return { previousData };
+    },
     onSuccess: (_, vars) => {
       toast.success(vars.currentStatus === 'organized' ? '已移回 Inbox' : '已标记为已整理');
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['items', 'inbox', typeFilter, tagFilter], context.previousData);
+      }
+      toast.error('操作失败');
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
     },
@@ -97,12 +146,12 @@ export function InboxPage() {
       itemIds: selectedIds,
       action: action as any,
       status: payload?.status,
-      topicId: payload?.topicId,
       tagId: payload?.tagId,
     });
   };
 
   const items = data?.items || [];
+  const tags = tagsData?.tags || [];
 
   return (
     <div className="space-y-6">
@@ -138,32 +187,63 @@ export function InboxPage() {
         <QuickCapture />
       </section>
 
-      {/* Type Filter Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-        {['', 'url', 'note', 'image', 'document', 'video'].map((typeKey) => (
-          <button
-            key={typeKey}
-            type="button"
-            onClick={() => setTypeFilter(typeKey)}
-            className={`px-3 py-1.5 rounded-xl font-medium transition-colors whitespace-nowrap ${
-              typeFilter === typeKey
-                ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 font-bold'
-                : 'bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300'
-            }`}
-          >
-            {typeKey === ''
-              ? '全部待整理'
-              : typeKey === 'url'
-              ? '🌐 网页'
-              : typeKey === 'note'
-              ? '📝 备忘'
-              : typeKey === 'image'
-              ? '🖼 图片'
-              : typeKey === 'document'
-              ? '📄 文档'
-              : '🎬 视频'}
-          </button>
-        ))}
+      {/* Filter Chips Bar */}
+      <div className="space-y-2">
+        {/* Type Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          {['', 'url', 'note', 'image', 'document', 'video'].map((typeKey) => (
+            <button
+              key={typeKey}
+              type="button"
+              onClick={() => setTypeFilter(typeKey)}
+              className={`px-3 py-1.5 rounded-xl font-medium transition-colors whitespace-nowrap ${
+                typeFilter === typeKey
+                  ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 font-bold'
+                  : 'bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300'
+              }`}
+            >
+              {typeKey === ''
+                ? '全部待整理'
+                : typeKey === 'url'
+                ? '🌐 网页'
+                : typeKey === 'note'
+                ? '📝 备忘'
+                : typeKey === 'image'
+                ? '🖼 图片'
+                : typeKey === 'document'
+                ? '📄 文档'
+                : '🎬 视频'}
+            </button>
+          ))}
+        </div>
+
+        {/* Quick Tag Filter Bar */}
+        {tags.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            <span className="text-[11px] text-stone-400 flex items-center gap-1 font-mono shrink-0 pl-1">
+              <TagIcon className="h-3 w-3 text-rose-500" />
+              <span>标签筛选:</span>
+            </span>
+            {tags.slice(0, 10).map((t) => {
+              const isSelected = tagFilter === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTagFilter(isSelected ? '' : t.id)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+                    isSelected
+                      ? 'bg-rose-600 text-white font-bold'
+                      : 'bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:text-rose-600'
+                  }`}
+                >
+                  <span>#{t.name}</span>
+                  {isSelected && <X className="h-3 w-3" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Item Cards List */}

@@ -29,6 +29,43 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
     queryFn: api.getTags,
   });
 
+  // Global paste handler to automatically capture when pasting anywhere on page
+  React.useEffect(() => {
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      const activeEl = document.activeElement as HTMLElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
+        return;
+      }
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const files: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file') {
+          const file = items[i].getAsFile();
+          if (file) files.push(file);
+        }
+      }
+
+      if (files.length > 0) {
+        e.preventDefault();
+        handleFiles(files);
+        return;
+      }
+
+      const text = e.clipboardData?.getData('text');
+      if (text && text.trim()) {
+        e.preventDefault();
+        setContent((prev) => (prev ? `${prev}\n${text.trim()}` : text.trim()));
+        textareaRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('paste', handleGlobalPaste);
+    return () => window.removeEventListener('paste', handleGlobalPaste);
+  }, []);
+
   // Extract real-time #tags from current input text
   const extractedTags = useMemo(() => {
     if (!content) return [];

@@ -24,8 +24,9 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  // Stats
+  // Stats & Backup
   getStats: () => fetchJson<VaultStats>(`${API_BASE}/stats`),
+  backupUrl: `${API_BASE}/backup`,
 
   // Items
   getItems: (params?: { status?: string; type?: string; favorite?: boolean; tagId?: string }) => {

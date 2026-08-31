@@ -1,13 +1,12 @@
-import crypto from 'crypto';
-import fs from 'fs';
 import path from 'path';
 import { ASSETS_DIR, db } from '../db/db';
 import { assets } from '../db/schema';
 
-export function computeSha256(buffer: Buffer | Uint8Array | string): string {
-  const hash = crypto.createHash('sha256');
-  hash.update(buffer);
-  return hash.digest('hex');
+// High performance native Bun SHA-256 hasher
+export function computeSha256(data: Buffer | Uint8Array | string): string {
+  const hasher = new Bun.CryptoHasher('sha256');
+  hasher.update(data);
+  return hasher.digest('hex');
 }
 
 export async function saveAssetFile({
@@ -29,8 +28,9 @@ export async function saveAssetFile({
   const safeFileName = `${sha256}${ext}`;
   const filePath = path.join(ASSETS_DIR, safeFileName);
 
-  if (!fs.existsSync(filePath)) {
-    await fs.promises.writeFile(filePath, buffer);
+  const destinationFile = Bun.file(filePath);
+  if (!(await destinationFile.exists())) {
+    await Bun.write(filePath, buffer);
   }
 
   const assetId = crypto.randomUUID();

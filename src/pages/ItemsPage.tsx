@@ -1,57 +1,108 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { Item } from '../lib/types';
 import { ItemCard } from '../components/ItemCard';
 import { BatchActionBar } from '../components/BatchActionBar';
 import { ItemDetailModal } from '../components/ItemDetailModal';
-import { Layers, Star, CheckCircle2, Archive, RefreshCw, FolderKanban } from 'lucide-react';
+import { Layers, RefreshCw, Tag as TagIcon, X } from 'lucide-react';
 import { useToast } from '../components/ui/Toast';
 
 export function ItemsPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'inbox' | 'organized' | 'archived' | 'favorite'>('all');
   const [typeFilter, setTypeFilter] = useState<string>('');
+  const [tagFilter, setTagFilter] = useState<string>('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
   const toast = useToast();
   const queryClient = useQueryClient();
 
+  const { data: tagsData } = useQuery({
+    queryKey: ['tags'],
+    queryFn: api.getTags,
+  });
+
   const { data, isLoading } = useQuery({
-    queryKey: ['items', activeTab, typeFilter],
+    queryKey: ['items', activeTab, typeFilter, tagFilter],
     queryFn: () =>
       api.getItems({
         status: activeTab === 'all' || activeTab === 'favorite' ? undefined : activeTab,
         favorite: activeTab === 'favorite' ? true : undefined,
         type: (typeFilter || undefined) as any,
+        tagId: tagFilter || undefined,
       }),
   });
 
   const batchMutation = useMutation({
-    mutationFn: api.batchItems,
+    mutationFn: api.batchAction,
     onSuccess: () => {
       toast.success('批量操作已完成');
       setSelectedIds([]);
       queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
     },
     onError: (err: any) => toast.error(err.message || '批量操作失败'),
   });
 
+  // Optimistic toggle favorite
   const toggleFavoriteMutation = useMutation({
     mutationFn: ({ id, favorite }: { id: string; favorite: boolean }) =>
       api.updateItem(id, { favorite }),
-    onSuccess: () => {
+    onMutate: async ({ id, favorite }) => {
+      await queryClient.cancelQueries({ queryKey: ['items'] });
+      const previousData = queryClient.getQueryData(['items', activeTab, typeFilter, tagFilter]);
+      queryClient.setQueryData(['items', activeTab, typeFilter, tagFilter], (old: any) => {
+        if (!old?.items) return old;
+        return {
+          ...old,
+          items: old.items.map((it: Item) => (it.id === id ? { ...it, favorite } : it)),
+        };
+      });
+      return { previousData };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['items', activeTab, typeFilter, tagFilter], context.previousData);
+      }
+      toast.error('操作失败');
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
     },
   });
 
+  // Optimistic toggle organize
   const toggleOrganizedMutation = useMutation({
     mutationFn: ({ id, currentStatus }: { id: string; currentStatus: string }) =>
       api.updateItem(id, {
         organizationStatus: currentStatus === 'organized' ? 'inbox' : 'organized',
       }),
-    onSuccess: () => {
+    onMutate: async ({ id, currentStatus }) => {
+      await queryClient.cancelQueries({ queryKey: ['items'] });
+      const previousData = queryClient.getQueryData(['items', activeTab, typeFilter, tagFilter]);
+      const nextStatus = currentStatus === 'organized' ? 'inbox' : 'organized';
+
+      queryClient.setQueryData(['items', activeTab, typeFilter, tagFilter], (old: any) => {
+        if (!old?.items) return old;
+        return {
+          ...old,
+          items: old.items.map((it: Item) =>
+            it.id === id ? { ...it, organizationStatus: nextStatus } : it
+          ),
+        };
+      });
+      return { previousData };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['items', activeTab, typeFilter, tagFilter], context.previousData);
+      }
+      toast.error('操作失败');
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
     },
@@ -95,12 +146,12 @@ export function ItemsPage() {
       itemIds: selectedIds,
       action: action as any,
       status: payload?.status,
-      topicId: payload?.topicId,
       tagId: payload?.tagId,
     });
   };
 
   const items = data?.items || [];
+  const tags = tagsData?.tags || [];
 
   return (
     <div className="space-y-6">
@@ -129,48 +180,78 @@ export function ItemsPage() {
         )}
       </header>
 
-      {/* Tabs */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-1.5 bg-stone-100 dark:bg-stone-800/80 p-1 rounded-2xl">
-          {[
-            { id: 'all', label: '全部' },
-            { id: 'inbox', label: '收件箱' },
-            { id: 'organized', label: '已整理' },
-            { id: 'favorite', label: '已收藏' },
-            { id: 'archived', label: '已归档' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                activeTab === tab.id
-                  ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs'
-                  : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+      {/* Tabs & Type Pills */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800/80 p-1 rounded-2xl">
+            {[
+              { id: 'all', label: '全部' },
+              { id: 'inbox', label: '收件箱' },
+              { id: 'organized', label: '已整理' },
+              { id: 'favorite', label: '已收藏' },
+              { id: 'archived', label: '已归档' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs'
+                    : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Type pills */}
+          <div className="flex items-center gap-1.5 text-xs overflow-x-auto">
+            {['', 'url', 'note', 'image', 'document', 'video'].map((tKey) => (
+              <button
+                key={tKey}
+                type="button"
+                onClick={() => setTypeFilter(tKey)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  typeFilter === tKey
+                    ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 font-bold'
+                    : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                }`}
+              >
+                {tKey === '' ? '全部类型' : tKey.toUpperCase()}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Type pills */}
-        <div className="flex items-center gap-1.5 text-xs overflow-x-auto">
-          {['', 'url', 'note', 'image', 'document', 'video'].map((tKey) => (
-            <button
-              key={tKey}
-              type="button"
-              onClick={() => setTypeFilter(tKey)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                typeFilter === tKey
-                  ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 font-bold'
-                  : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
-              }`}
-            >
-              {tKey === '' ? '全部类型' : tKey.toUpperCase()}
-            </button>
-          ))}
-        </div>
+        {/* Quick Tag Filter Bar */}
+        {tags.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            <span className="text-[11px] text-stone-400 flex items-center gap-1 font-mono shrink-0 pl-1">
+              <TagIcon className="h-3 w-3 text-rose-500" />
+              <span>标签筛选:</span>
+            </span>
+            {tags.slice(0, 12).map((t) => {
+              const isSelected = tagFilter === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTagFilter(isSelected ? '' : t.id)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+                    isSelected
+                      ? 'bg-rose-600 text-white font-bold'
+                      : 'bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:text-rose-600'
+                  }`}
+                >
+                  <span>#{t.name}</span>
+                  {isSelected && <X className="h-3 w-3" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Cards list */}

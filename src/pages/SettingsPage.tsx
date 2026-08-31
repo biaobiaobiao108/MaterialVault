@@ -13,7 +13,10 @@ import {
   Sun,
   Moon,
   Laptop,
+  Download,
+  Command,
 } from 'lucide-react';
+import { Button } from '../components/ui/Button';
 
 export function SettingsPage() {
   const { preference, setPreference, isDark } = useTheme();
@@ -44,6 +47,13 @@ export function SettingsPage() {
     },
   ];
 
+  const shortcuts = [
+    { key: 'Ctrl + K / /', desc: '快速激活全文检索与多维过滤' },
+    { key: 'Ctrl + V (全局)', desc: '页面任意处粘贴链接、备忘或截图，自动激活收件箱保存' },
+    { key: 'Ctrl + Enter', desc: '在输入框中快速提交备忘/素材' },
+    { key: '#标签名', desc: '在文本中任意位置输入或粘贴，自动生成并关联标签' },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -69,7 +79,7 @@ export function SettingsPage() {
               Material Vault
             </h2>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-500/10 text-rose-600 dark:text-rose-400">
-              v1.0 MVP
+              v1.0 Native Bun
             </span>
           </div>
           <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed">
@@ -123,12 +133,46 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* Storage & Indexing Stats */}
+      {/* Shortcuts Cheat Sheet */}
       <section className="space-y-3 pt-2">
         <h2 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-          <HardDrive className="h-4 w-4 text-indigo-500" />
-          <span>证据库存储与索引统计</span>
+          <Command className="h-4 w-4 text-amber-500" />
+          <span>高效创作者快捷键</span>
         </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {shortcuts.map((sc) => (
+            <div
+              key={sc.key}
+              className="flex items-center justify-between p-3 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 text-xs"
+            >
+              <span className="text-stone-600 dark:text-stone-300">{sc.desc}</span>
+              <kbd className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-200/70 dark:border-stone-700 shrink-0 ml-2">
+                {sc.key}
+              </kbd>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Storage & Indexing Stats & Backup */}
+      <section className="space-y-3 pt-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+            <HardDrive className="h-4 w-4 text-indigo-500" />
+            <span>证据库存储与备份</span>
+          </h2>
+
+          <a
+            href={api.backupUrl}
+            download
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-semibold text-stone-700 dark:text-stone-300 transition-colors"
+            title="一键导出全部素材元数据与标签"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>导出全库 JSON 备份</span>
+          </a>
+        </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="p-4 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900">
@@ -199,7 +243,7 @@ export function SettingsPage() {
         </section>
       )}
 
-      {/* Architecture & Reliability principles from Dev Plan */}
+      {/* Architecture & Reliability principles */}
       <section className="p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-900/60 text-xs space-y-2 text-stone-600 dark:text-stone-400 leading-relaxed">
         <div className="font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-emerald-600" />

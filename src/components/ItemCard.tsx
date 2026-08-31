@@ -144,13 +144,21 @@ export function ItemCard({
             </p>
           ) : null}
 
-          {/* Tags Badges */}
+          {/* Tags Badges with Tag Pivoting */}
           {item.tags && item.tags.length > 0 && (
             <div className="mt-3 flex items-center gap-1.5 flex-wrap">
               {item.tags.map((tag) => (
-                <Badge key={tag.id} variant="stone" size="sm">
+                <span
+                  key={tag.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.location.href = `/search?tagId=${tag.id}`;
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-medium hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                  title={`点击查看包含 #${tag.name} 的所有素材`}
+                >
                   <span>#{tag.name}</span>
-                </Badge>
+                </span>
               ))}
             </div>
           )}
