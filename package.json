@@ -13,27 +13,20 @@
     "db:seed": "go run ./cmd/server --seed"
   },
   "dependencies": {
-    "@mozilla/readability": "^0.5.0",
     "@tanstack/react-query": "^5.67.1",
     "clsx": "^2.1.1",
-    "drizzle-orm": "^0.39.3",
-    "linkedom": "^0.18.9",
     "lucide-react": "^1.16.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.29.0",
-    "tailwind-merge": "^3.0.2",
-    "turndown": "^7.2.0",
-    "zod": "^3.24.2"
+    "tailwind-merge": "^3.0.2"
   },
   "devDependencies": {
     "@types/node": "^22.13.5",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
-    "@types/turndown": "^5.0.5",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "drizzle-kit": "^0.30.4",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
