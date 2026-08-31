@@ -1,182 +1,203 @@
-// Material Vault Popup Logic
+// Material Vault Popup Client Script
 const DEFAULT_SERVER_URL = 'http://localhost:3000';
 
 let currentTab = null;
-let selectedTags = new Set();
 let allTagsList = [];
+let closeCountdownTimer = null;
+let countdownRemaining = 3;
 
-// DOM Elements
-const statusIndicator = document.getElementById('status-indicator');
+// DOM Element references
+const statusPill = document.getElementById('status-pill');
 const statusText = document.getElementById('status-text');
 const btnSettingsToggle = document.getElementById('btn-settings-toggle');
+const btnSettingsClose = document.getElementById('btn-settings-close');
 const settingsDrawer = document.getElementById('settings-drawer');
 const serverUrlInput = document.getElementById('server-url');
 const btnSaveSettings = document.getElementById('btn-save-settings');
 
+const domainBadge = document.getElementById('domain-badge');
+const urlText = document.getElementById('url-text');
 const itemTitleInput = document.getElementById('item-title');
-const itemUrlText = document.getElementById('item-url');
-const tagInput = document.getElementById('tag-input');
-const tagsContainer = document.getElementById('tags-container');
-const suggestedTagsWrapper = document.getElementById('suggested-tags-wrapper');
-const suggestedTagsContainer = document.getElementById('suggested-tags');
 const itemNoteInput = document.getElementById('item-note');
 
+const tagsSection = document.getElementById('tags-section');
+const tagsPillsList = document.getElementById('tags-pills-list');
+const quickTagSelect = document.getElementById('quick-tag-select');
+
 const btnSave = document.getElementById('btn-save');
+const btnSaveIcon = document.getElementById('btn-save-icon');
 const btnSaveText = document.getElementById('btn-save-text');
 const btnSpinner = document.getElementById('btn-spinner');
 
 const captureView = document.getElementById('capture-view');
 const successView = document.getElementById('success-view');
 const btnOpenVault = document.getElementById('btn-open-vault');
-const btnClose = document.getElementById('btn-close');
+const btnClosePopup = document.getElementById('btn-close-popup');
+const closeCountdownText = document.getElementById('close-countdown-text');
+
 const errorToast = document.getElementById('error-toast');
 const errorMsg = document.getElementById('error-msg');
 
-// 1. Initialize
+// 1. Initialization on DOM Loaded
 document.addEventListener('DOMContentLoaded', async () => {
   const config = await chrome.storage.local.get(['vaultServerUrl']);
-  const serverUrl = config.vaultServerUrl || DEFAULT_SERVER_URL;
+  const serverUrl = (config.vaultServerUrl || DEFAULT_SERVER_URL).replace(/\/$/, '');
   serverUrlInput.value = serverUrl;
 
   await checkServerHealth(serverUrl);
   await loadActiveTabInfo();
   await loadTags(serverUrl);
+
+  // Set up real-time #tag detection listeners
+  itemTitleInput.addEventListener('input', updateExtractedTags);
+  itemNoteInput.addEventListener('input', updateExtractedTags);
 });
 
-// 2. Server Health Check
+// 2. Check Backend Server Health
 async function checkServerHealth(serverUrl) {
   try {
     const res = await fetch(`${serverUrl}/api/stats`, { method: 'GET' });
     if (res.ok) {
-      statusIndicator.className = 'status-indicator online';
+      statusPill.className = 'status-pill online';
       statusText.textContent = '在线';
-      statusIndicator.title = `已连接至 ${serverUrl}`;
+      statusPill.title = `已连接至 ${serverUrl}`;
       return true;
     }
   } catch (_) {}
 
-  statusIndicator.className = 'status-indicator offline';
+  statusPill.className = 'status-pill offline';
   statusText.textContent = '离线';
-  statusIndicator.title = `无法连接 ${serverUrl}，请确认后端服务已启动 (bun run start)`;
+  statusPill.title = `无法连接 ${serverUrl}，请启动后端服务 (bun run start)`;
   return false;
 }
 
-// 3. Load Active Tab Info
+// 3. Load Active Tab Info & Domain
 async function loadActiveTabInfo() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab) {
     currentTab = tab;
     itemTitleInput.value = tab.title || '';
-    itemUrlText.textContent = tab.url || '';
-    itemUrlText.title = tab.url || '';
+    urlText.textContent = tab.url || '';
+    urlText.title = tab.url || '';
+
+    try {
+      const parsedUrl = new URL(tab.url);
+      domainBadge.textContent = parsedUrl.hostname.replace(/^www\./, '');
+    } catch (_) {
+      domainBadge.textContent = 'Web';
+    }
+
+    updateExtractedTags();
   }
 }
 
-// 4. Load Vault Tags
+// 4. Load Vault Tags from Database
 async function loadTags(serverUrl) {
   try {
     const res = await fetch(`${serverUrl}/api/tags`);
     if (res.ok) {
       const data = await res.json();
       allTagsList = data.tags || [];
-      renderSuggestedTags();
+      populateQuickTagSelect();
     }
   } catch (_) {}
 }
 
-function renderSuggestedTags() {
-  suggestedTagsContainer.innerHTML = '';
-  const unselectedTags = allTagsList.filter((t) => !selectedTags.has(t.name));
+function populateQuickTagSelect() {
+  quickTagSelect.innerHTML = '<option value="">+ 关联已有标签</option>';
+  allTagsList.forEach((tag) => {
+    const opt = document.createElement('option');
+    opt.value = tag.name;
+    opt.textContent = `#${tag.name}`;
+    quickTagSelect.appendChild(opt);
+  });
+}
 
-  if (unselectedTags.length > 0) {
-    suggestedTagsWrapper.classList.remove('hidden');
-    unselectedTags.slice(0, 8).forEach((tag) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'suggested-tag-btn';
-      btn.textContent = `#${tag.name}`;
-      btn.addEventListener('click', () => {
-        addTag(tag.name);
+// 5. Real-time Hashtag Detection & Pill Rendering (matching QuickCapture.tsx)
+function extractHashtagsFromText(text) {
+  if (!text) return [];
+  const matches = text.match(/(?:^|\s)#([\p{L}\p{N}_-]+)/gu);
+  if (!matches) return [];
+
+  const set = new Set();
+  for (const m of matches) {
+    const clean = m.trim().replace(/^#/, '').trim();
+    if (clean.length > 0) set.add(clean);
+  }
+  return Array.from(set);
+}
+
+function updateExtractedTags() {
+  const combinedText = `${itemTitleInput.value} ${itemNoteInput.value}`;
+  const tags = extractHashtagsFromText(combinedText);
+
+  tagsPillsList.innerHTML = '';
+
+  if (tags.length > 0) {
+    tagsSection.classList.remove('hidden');
+    tags.forEach((tag) => {
+      const pill = document.createElement('span');
+      pill.className = 'tag-pill';
+      pill.innerHTML = `
+        <span>#${tag}</span>
+        <span class="remove-btn" title="移除标签">&times;</span>
+      `;
+
+      pill.querySelector('.remove-btn').addEventListener('click', () => {
+        removeTagFromInputs(tag);
       });
-      suggestedTagsContainer.appendChild(btn);
+
+      tagsPillsList.appendChild(pill);
     });
   } else {
-    suggestedTagsWrapper.classList.add('hidden');
+    tagsSection.classList.add('hidden');
   }
 }
 
-// 5. Tag Management
-function renderTagPills() {
-  // Remove existing pills except input
-  const existingPills = tagsContainer.querySelectorAll('.tag-pill');
-  existingPills.forEach((p) => p.remove());
-
-  selectedTags.forEach((tagName) => {
-    const pill = document.createElement('span');
-    pill.className = 'tag-pill';
-    pill.innerHTML = `
-      <span>#${tagName}</span>
-      <span class="remove-tag" title="移除">&times;</span>
-    `;
-
-    pill.querySelector('.remove-tag').addEventListener('click', (e) => {
-      e.stopPropagation();
-      removeTag(tagName);
-    });
-
-    tagsContainer.insertBefore(pill, tagInput);
-  });
-
-  renderSuggestedTags();
+function removeTagFromInputs(tagName) {
+  const regex = new RegExp(`(?:^|\\s)#${tagName}(?=\\s|$)`, 'g');
+  itemNoteInput.value = itemNoteInput.value.replace(regex, ' ').trim();
+  itemTitleInput.value = itemTitleInput.value.replace(regex, ' ').trim();
+  updateExtractedTags();
 }
 
-function addTag(name) {
-  const clean = name.trim().replace(/^#/, '').trim();
-  if (clean && !selectedTags.has(clean)) {
-    selectedTags.add(clean);
-    renderTagPills();
-  }
-  tagInput.value = '';
-}
-
-function removeTag(name) {
-  selectedTags.delete(name);
-  renderTagPills();
-}
-
-// Tag input listener
-tagInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
-    e.preventDefault();
-    if (tagInput.value.trim()) {
-      addTag(tagInput.value);
+// When user picks a tag from dropdown, insert into note
+quickTagSelect.addEventListener('change', (e) => {
+  const selectedTag = e.target.value;
+  if (selectedTag) {
+    const currentNote = itemNoteInput.value;
+    if (!currentNote.includes(`#${selectedTag}`)) {
+      itemNoteInput.value = currentNote ? `${currentNote.trim()} #${selectedTag} ` : `#${selectedTag} `;
+      updateExtractedTags();
     }
-  } else if (e.key === 'Backspace' && !tagInput.value && selectedTags.size > 0) {
-    const tagsArr = Array.from(selectedTags);
-    removeTag(tagsArr[tagsArr.length - 1]);
+    quickTagSelect.value = '';
+    itemNoteInput.focus();
   }
 });
 
-// 6. Settings Drawer Toggle
+// 6. Settings Drawer Logic
 btnSettingsToggle.addEventListener('click', () => {
   settingsDrawer.classList.toggle('hidden');
+});
+
+btnSettingsClose.addEventListener('click', () => {
+  settingsDrawer.classList.add('hidden');
 });
 
 btnSaveSettings.addEventListener('click', async () => {
   let url = serverUrlInput.value.trim();
   if (!url) url = DEFAULT_SERVER_URL;
-  url = url.replace(/\/$/, ''); // Remove trailing slash
+  url = url.replace(/\/$/, '');
 
   await chrome.storage.local.set({ vaultServerUrl: url });
   serverUrlInput.value = url;
   settingsDrawer.classList.add('hidden');
 
-  showToast('服务地址已更新');
   const isOnline = await checkServerHealth(url);
   if (isOnline) loadTags(url);
 });
 
-// 7. Capture Submit
+// 7. Save Submission
 btnSave.addEventListener('click', handleSave);
 
 document.addEventListener('keydown', (e) => {
@@ -188,19 +209,16 @@ document.addEventListener('keydown', (e) => {
 
 async function handleSave() {
   if (!currentTab || !currentTab.url) {
-    showError('无法获取当前网页链接');
+    showError('无法获取当前标签页链接');
     return;
   }
 
   const config = await chrome.storage.local.get(['vaultServerUrl']);
-  const serverUrl = config.vaultServerUrl || DEFAULT_SERVER_URL;
+  const serverUrl = (config.vaultServerUrl || DEFAULT_SERVER_URL).replace(/\/$/, '');
 
   const title = itemTitleInput.value.trim() || currentTab.title || currentTab.url;
   const url = currentTab.url;
-  const note = itemNoteInput.value.trim();
-
-  // Combine typed tags with note text for hashtag auto-extraction
-  const tagNames = Array.from(selectedTags);
+  const description = itemNoteInput.value.trim();
 
   setLoading(true);
 
@@ -211,7 +229,7 @@ async function handleSave() {
       body: JSON.stringify({
         url,
         title,
-        description: note ? `${note} ${tagNames.map((t) => `#${t}`).join(' ')}` : tagNames.map((t) => `#${t}`).join(' '),
+        description,
       }),
     });
 
@@ -224,22 +242,41 @@ async function handleSave() {
     // Switch to success view
     captureView.classList.add('hidden');
     successView.classList.remove('hidden');
+
+    startCountdown();
   } catch (err) {
-    showError(err.message || '网络连接失败，请确认 Vault 服务已启动');
+    showError(err.message || '连接失败，请确认 Material Vault 本地服务已启动');
   } finally {
     setLoading(false);
   }
 }
 
-// 8. Success actions
+// 8. Success View Actions & Auto-close Timer
+function startCountdown() {
+  countdownRemaining = 3;
+  closeCountdownText.textContent = `关闭弹窗 (${countdownRemaining}s)`;
+
+  closeCountdownTimer = setInterval(() => {
+    countdownRemaining--;
+    if (countdownRemaining <= 0) {
+      clearInterval(closeCountdownTimer);
+      window.close();
+    } else {
+      closeCountdownText.textContent = `关闭弹窗 (${countdownRemaining}s)`;
+    }
+  }, 1000);
+}
+
 btnOpenVault.addEventListener('click', async () => {
+  if (closeCountdownTimer) clearInterval(closeCountdownTimer);
   const config = await chrome.storage.local.get(['vaultServerUrl']);
-  const serverUrl = config.vaultServerUrl || DEFAULT_SERVER_URL;
+  const serverUrl = (config.vaultServerUrl || DEFAULT_SERVER_URL).replace(/\/$/, '');
   chrome.tabs.create({ url: `${serverUrl}/` });
   window.close();
 });
 
-btnClose.addEventListener('click', () => {
+btnClosePopup.addEventListener('click', () => {
+  if (closeCountdownTimer) clearInterval(closeCountdownTimer);
   window.close();
 });
 
@@ -247,11 +284,13 @@ btnClose.addEventListener('click', () => {
 function setLoading(loading) {
   btnSave.disabled = loading;
   if (loading) {
-    btnSaveText.textContent = '保存中...';
+    btnSaveIcon.classList.add('hidden');
     btnSpinner.classList.remove('hidden');
+    btnSaveText.textContent = '保存中...';
   } else {
-    btnSaveText.textContent = '保存到 Inbox';
+    btnSaveIcon.classList.remove('hidden');
     btnSpinner.classList.add('hidden');
+    btnSaveText.textContent = '保存素材';
   }
 }
 
@@ -261,14 +300,4 @@ function showError(msg) {
   setTimeout(() => {
     errorToast.classList.add('hidden');
   }, 4000);
-}
-
-function showToast(msg) {
-  errorToast.style.backgroundColor = '#10b981';
-  errorMsg.textContent = msg;
-  errorToast.classList.remove('hidden');
-  setTimeout(() => {
-    errorToast.classList.add('hidden');
-    errorToast.style.backgroundColor = '#ef4444';
-  }, 2500);
 }
