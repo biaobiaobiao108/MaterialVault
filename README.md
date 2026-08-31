@@ -8,7 +8,6 @@
 
 [![Built with Bun](https://img.shields.io/badge/Bun-1.4.0+-black?logo=bun)](https://bun.sh)
 [![React 18](https://img.shields.io/badge/React-18-blue?logo=react)](https://react.dev)
-[![Hono](https://img.shields.io/badge/Hono-v4-E36002?logo=hono)](https://hono.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?logo=tailwind-css)](https://tailwindcss.com)
 [![SQLite FTS5](https://img.shields.io/badge/SQLite-FTS5-003B57?logo=sqlite)](https://sqlite.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-rose.svg)](./LICENSE)
@@ -48,12 +47,11 @@
 
 ## 🛠️ 技术架构
 
-全流程基于 **Bun 单体全栈工程** 构建：
+全流程基于 **纯原生 Bun 单体全栈工程** 构建：
 
 | 领域 | 技术栈 |
 | --- | --- |
-| **运行时** | `Bun >= 1.4.0` |
-| **后端框架** | `Hono` |
+| **运行时与服务端** | `Bun >= 1.4.0` (原生 `Bun.serve`) |
 | **数据库** | `bun:sqlite` + `Drizzle ORM` (`./data/vault.db`) |
 | **全文检索** | `SQLite FTS5` (unicode61 + 实时触发器同步) |
 | **前端框架** | `React 18` + `TypeScript` + `Vite` |

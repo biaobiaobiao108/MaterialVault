@@ -1,9 +1,11 @@
-import { Hono } from 'hono';
 import { sqlite } from '../db/db';
+import { json } from '../utils';
 
-export const statsRouter = new Hono();
+export async function handleStats(req: Request, url: URL): Promise<Response> {
+  if (req.method !== 'GET') {
+    return json({ error: 'Method Not Allowed' }, 405);
+  }
 
-statsRouter.get('/', async (c) => {
   const totalItems = (sqlite.prepare(`SELECT COUNT(*) as count FROM items`).get() as any).count;
   const inboxCount = (sqlite.prepare(`SELECT COUNT(*) as count FROM items WHERE organization_status = 'inbox'`).get() as any).count;
   const organizedCount = (sqlite.prepare(`SELECT COUNT(*) as count FROM items WHERE organization_status = 'organized'`).get() as any).count;
@@ -17,7 +19,7 @@ statsRouter.get('/', async (c) => {
   const typeCounts = sqlite.prepare(`SELECT type, COUNT(*) as count FROM items GROUP BY type`).all() as any[];
   const domainCounts = sqlite.prepare(`SELECT source_domain as domain, COUNT(*) as count FROM items WHERE source_domain IS NOT NULL GROUP BY source_domain ORDER BY count DESC LIMIT 10`).all() as any[];
 
-  return c.json({
+  return json({
     totalItems,
     inboxCount,
     organizedCount,
@@ -30,4 +32,4 @@ statsRouter.get('/', async (c) => {
     typeCounts,
     topDomains: domainCounts,
   });
-});
+}

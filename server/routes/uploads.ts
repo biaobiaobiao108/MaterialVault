@@ -1,22 +1,30 @@
-import { Hono } from 'hono';
 import crypto from 'crypto';
 import { db } from '../db/db';
 import { items, itemTopics, itemTags } from '../db/schema';
 import { saveAssetFile } from '../services/storage';
 import { getFullItem } from './items';
+import { json } from '../utils';
 
-export const uploadsRouter = new Hono();
+export async function handleUploads(req: Request): Promise<Response> {
+  if (req.method !== 'POST') {
+    return json({ error: 'Method Not Allowed' }, 405);
+  }
 
-uploadsRouter.post('/', async (c) => {
-  const body = await c.req.parseBody({ all: true });
-  const files = Array.isArray(body.file) ? body.file : [body.file];
-  const title = typeof body.title === 'string' ? body.title : undefined;
-  const description = typeof body.description === 'string' ? body.description : '';
-  const topicIds = body.topicIds ? (Array.isArray(body.topicIds) ? body.topicIds : [body.topicIds]) : [];
-  const tagIds = body.tagIds ? (Array.isArray(body.tagIds) ? body.tagIds : [body.tagIds]) : [];
+  let formData: FormData;
+  try {
+    formData = await req.formData();
+  } catch (err: any) {
+    return json({ error: '解析上传数据失败: ' + err.message }, 400);
+  }
 
-  if (!files || files.length === 0 || !files[0]) {
-    return c.json({ error: '没有上传任何文件' }, 400);
+  const files = formData.getAll('file') as File[];
+  const title = formData.get('title') as string | null;
+  const description = (formData.get('description') as string | null) || '';
+  const topicIds = formData.getAll('topicIds') as string[];
+  const tagIds = formData.getAll('tagIds') as string[];
+
+  if (!files || files.length === 0 || !(files[0] instanceof File)) {
+    return json({ error: '没有上传任何文件' }, 400);
   }
 
   const createdItems: any[] = [];
@@ -39,7 +47,6 @@ uploadsRouter.post('/', async (c) => {
     const now = Date.now();
     const itemTitle = title?.trim() || fileName;
 
-    // For plain text / markdown files, extract text for search
     let contentText = '';
     if (mime.includes('text') || fileName.endsWith('.txt') || fileName.endsWith('.md')) {
       contentText = buffer.toString('utf-8');
@@ -72,8 +79,8 @@ uploadsRouter.post('/', async (c) => {
     });
 
     // Link topics
-    for (const tId of topicIds as string[]) {
-      if (typeof tId === 'string' && tId) {
+    for (const tId of topicIds) {
+      if (tId) {
         try {
           await db.insert(itemTopics).values({ itemId, topicId: tId, createdAt: now });
         } catch (_) {}
@@ -81,8 +88,8 @@ uploadsRouter.post('/', async (c) => {
     }
 
     // Link tags
-    for (const tgId of tagIds as string[]) {
-      if (typeof tgId === 'string' && tgId) {
+    for (const tgId of tagIds) {
+      if (tgId) {
         try {
           await db.insert(itemTags).values({ itemId, tagId: tgId, createdAt: now });
         } catch (_) {}
@@ -93,5 +100,5 @@ uploadsRouter.post('/', async (c) => {
     createdItems.push(full);
   }
 
-  return c.json({ items: createdItems }, 201);
-});
+  return json({ items: createdItems }, 201);
+}

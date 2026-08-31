@@ -1,26 +1,31 @@
-import { Hono } from 'hono';
 import { searchItems } from '../services/search';
 import { sqlite } from '../db/db';
+import { json } from '../utils';
 
-export const searchRouter = new Hono();
+export async function handleSearch(req: Request, url: URL): Promise<Response> {
+  if (req.method !== 'GET') {
+    return json({ error: 'Method Not Allowed' }, 405);
+  }
 
-searchRouter.get('/', async (c) => {
-  const q = c.req.query('q');
-  const type = c.req.query('type');
-  const organizationStatus = c.req.query('status') as 'inbox' | 'organized' | 'archived' | undefined;
-  const topicId = c.req.query('topicId');
-  const tagId = c.req.query('tagId');
-  const domain = c.req.query('domain');
-  const favorite = c.req.query('favorite') === 'true' ? true : c.req.query('favorite') === 'false' ? false : undefined;
-  const startDate = c.req.query('startDate') ? parseInt(c.req.query('startDate')!, 10) : undefined;
-  const endDate = c.req.query('endDate') ? parseInt(c.req.query('endDate')!, 10) : undefined;
-  const limit = parseInt(c.req.query('limit') || '50', 10);
-  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const q = url.searchParams.get('q') || undefined;
+  const type = url.searchParams.get('type') || undefined;
+  const status = (url.searchParams.get('status') as any) || undefined;
+  const topicId = url.searchParams.get('topicId') || undefined;
+  const tagId = url.searchParams.get('tagId') || undefined;
+  const domain = url.searchParams.get('domain') || undefined;
+  const favoriteParam = url.searchParams.get('favorite');
+  const favorite = favoriteParam === 'true' ? true : favoriteParam === 'false' ? false : undefined;
+  const startDateStr = url.searchParams.get('startDate');
+  const endDateStr = url.searchParams.get('endDate');
+  const startDate = startDateStr ? parseInt(startDateStr, 10) : undefined;
+  const endDate = endDateStr ? parseInt(endDateStr, 10) : undefined;
+  const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+  const offset = parseInt(url.searchParams.get('offset') || '0', 10);
 
   const results = searchItems({
     q,
     type,
-    organizationStatus,
+    organizationStatus: status,
     topicId,
     tagId,
     domain,
@@ -76,5 +81,5 @@ searchRouter.get('/', async (c) => {
     assets: assetsByItem[r.id] || [],
   }));
 
-  return c.json({ items: enriched, count: enriched.length });
-});
+  return json({ items: enriched, count: enriched.length });
+}

@@ -28,8 +28,7 @@
 
 | 层级 | 技术选型 | 说明 |
 | --- | --- | --- |
-| **运行时** | `Bun >= 1.4.0` | 包管理、脚本执行与服务端运行 |
-| **后端框架** | `Hono` | 轻量高性能 HTTP API 与静态文件托管 |
+| **运行时与服务端** | `Bun >= 1.4.0` (原生 `Bun.serve`) | 包管理、纯原生 HTTP 服务与静态文件托管 |
 | **数据库** | `bun:sqlite` + `Drizzle ORM` | 嵌入式 SQLite 数据库，位于 `./data/vault.db` |
 | **全文检索** | `SQLite FTS5` (unicode61 / subquery) | 毫秒级中文标题、备注、URL 及正文全文检索 |
 | **前端框架** | `React 18` + `TypeScript` + `Vite` | 单页应用，位于 `./src` |
@@ -46,10 +45,10 @@ MaterialVault/
 │   ├── vault.db             # SQLite 数据库与 FTS5 虚拟表
 │   └── assets/              # SHA-256 二进制文件去重存储池
 ├── public/                  # 静态资源 (小熊猫 mascot logo.png, favicon.png)
-├── server/                  # Bun + Hono 后端代码
-│   ├── index.ts             # 服务端入口 (挂载 API 与前端 SPA 静态托管)
+├── server/                  # 纯原生 Bun 后端代码 (零外部 Web 框架依赖)
+│   ├── index.ts             # 服务端入口 (Bun.serve 原生 API 路由与静态托管)
 │   ├── db/                  # 数据层 (schema.ts, db.ts, seed.ts)
-│   ├── routes/              # 路由 (items, topics, tags, search, assets, uploads, stats)
+│   ├── routes/              # 原生路由分发 (items, topics, tags, search, assets, uploads, stats)
 │   └── services/            # 核心业务 (capture.ts, storage.ts, search.ts)
 ├── src/                     # React 前端代码
 │   ├── components/          # 业务组件 (QuickCapture, ItemCard, Modals, BatchBar)
