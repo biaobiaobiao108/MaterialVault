@@ -43,6 +43,7 @@ MaterialVault/
 ├── data/                    # 本地数据目录 (已 gitignore)
 │   ├── vault.db             # SQLite 数据库与 FTS5 虚拟表
 │   └── assets/              # SHA-256 二进制文件去重存储池
+├── extension/               # 官方浏览器扩展 (Manifest V3，免编译开箱即用)
 ├── public/                  # 静态资源 (小熊猫 mascot logo.png, favicon.png)
 ├── server/                  # 纯原生 Bun 后端代码 (零外部 Web 框架依赖)
 │   ├── index.ts             # 服务端入口 (Bun.serve 原生 API 路由与静态托管)

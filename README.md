@@ -99,6 +99,20 @@ bun run build
 
 ---
 
+## 🧩 官方浏览器插件 (Chrome / Edge 扩展)
+
+项目内置官方浏览器扩展程序（位于 `./extension` 目录，Manifest V3 规范，零编译步骤）：
+
+1. 打开 Chrome/Edge 的扩展管理页（`chrome://extensions` 或 `edge://extensions`）；
+2. 开启右上角 **「开发者模式」**；
+3. 点击 **「加载已解压的扩展程序」**，选择本项目中的 `extension` 目录即可！
+4. **功能特性**：
+   - 快捷弹窗（Popup）：自动提取当前标题与 URL，支持输入 `#标签`、笔记与 `Ctrl + Enter` 保存；
+   - 右键菜单：一键保存网页、选中文本或图片；
+   - 快捷键：`Alt + S` 一键保存当前标签页。
+
+---
+
 ## 📂 项目结构
 
 ```text

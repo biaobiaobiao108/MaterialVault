@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Material Vault 官方采集插件",
+  "version": "1.0.0",
+  "description": "专为视频创作者打造的极速网页证据、选中文本与图片采集归档扩展程序",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "保存到 Material Vault",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage",
+    "notifications",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*",
+    "<all_urls>"
+  ],
+  "commands": {
+    "save_current_tab": {
+      "suggested_key": {
+        "default": "Alt+S",
+        "mac": "Alt+S"
+      },
+      "description": "快速保存当前页面到 Material Vault"
+    }
+  }
+}
