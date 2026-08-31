@@ -14,7 +14,6 @@ import {
   AlertTriangle,
   Plus,
   X,
-  Copy,
   Play,
   Eye,
   Code,
@@ -142,20 +141,6 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
 
   const unlinkedTags = tagsData?.tags.filter((t) => !item?.tags?.some((it) => it.id === t.id)) || [];
 
-  const handleCopyAiCitation = () => {
-    if (!item) return;
-    const tagStr = item.tags && item.tags.length > 0 ? item.tags.map((t) => `#${t.name}`).join(' ') : '无';
-    const citation = `> [!NOTE] 素材证据引用
-> **标题**：${item.title}
-${item.sourceUrl ? `> **来源链接**：${item.sourceUrl}${item.sourceDomain ? ` (${item.sourceDomain})` : ''}\n` : ''}> **关联标签**：${tagStr}
-${item.description ? `>\n> **创作备注**：\n> ${item.description.replace(/\n/g, '\n> ')}\n` : ''}${
-      item.contentText ? `>\n> **核心正文提取**：\n> ${item.contentText.slice(0, 1000).replace(/\n/g, '\n> ')}` : ''
-    }`;
-
-    navigator.clipboard.writeText(citation);
-    toast.success('已复制标准 Markdown 证据包，可直接粘贴到写稿工具或大模型 Prompt 中', '引用包已复制');
-  };
-
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose} maxWidth="4xl" showClose={true}>
@@ -199,17 +184,6 @@ ${item.description ? `>\n> **创作备注**：\n> ${item.description.replace(/\n
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {/* One-click AI Citation Copy */}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleCopyAiCitation}
-                    className="gap-1 text-xs"
-                    title="复制为标准 Markdown 证据引用格式"
-                  >
-                    <Copy className="h-3.5 w-3.5 text-rose-500" />
-                    <span>复制 AI 证据包</span>
-                  </Button>
 
                   <button
                     type="button"
