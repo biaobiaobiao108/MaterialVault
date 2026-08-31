@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Check, Search, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -21,6 +21,13 @@ export interface CustomSelectProps {
   clearable?: boolean;
 }
 
+interface Coords {
+  top: number;
+  left: number;
+  width: number;
+  placeAbove: boolean;
+}
+
 export function CustomSelect({
   value,
   onChange,
@@ -33,11 +40,7 @@ export function CustomSelect({
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [coords, setCoords] = useState<{ top: number; left: number; width: number }>({
-    top: 0,
-    left: 0,
-    width: 0,
-  });
+  const [coords, setCoords] = useState<Coords | null>(null);
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -45,28 +48,55 @@ export function CustomSelect({
 
   const selectedOption = options.find((o) => o.value === value);
 
-  // Update floating menu position relative to trigger button
-  const updatePosition = useCallback(() => {
-    if (buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
+  // Synchronously compute floating menu position relative to trigger button
+  const computeCoords = useCallback((): Coords | null => {
+    if (!buttonRef.current) return null;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
+    const viewportHeight = window.innerHeight;
+    const spaceBelow = viewportHeight - rect.bottom;
+    const placeAbove = spaceBelow < 200 && rect.top > 200;
 
-      setCoords({
-        top: rect.bottom + scrollTop + 4,
-        left: rect.left + scrollLeft,
-        width: Math.max(rect.width, 160),
-      });
-    }
+    return {
+      top: placeAbove ? rect.top + scrollTop - 4 : rect.bottom + scrollTop + 4,
+      left: rect.left + scrollLeft,
+      width: Math.max(rect.width, 160),
+      placeAbove,
+    };
   }, []);
+
+  const handleToggle = () => {
+    if (disabled) return;
+    if (!isOpen) {
+      const initialCoords = computeCoords();
+      if (initialCoords) {
+        setCoords(initialCoords);
+      }
+      setIsOpen(true);
+      setSearchQuery('');
+    } else {
+      setIsOpen(false);
+    }
+  };
+
+  // Keep coordinates perfectly in sync on open / scroll / resize before paint
+  useLayoutEffect(() => {
+    if (isOpen) {
+      const nextCoords = computeCoords();
+      if (nextCoords) {
+        setCoords(nextCoords);
+      }
+    }
+  }, [isOpen, computeCoords]);
 
   useEffect(() => {
     if (isOpen) {
-      updatePosition();
-      setSearchQuery('');
-
       const handleScrollOrResize = () => {
-        updatePosition();
+        const nextCoords = computeCoords();
+        if (nextCoords) {
+          setCoords(nextCoords);
+        }
       };
 
       const handleClickOutside = (e: MouseEvent) => {
@@ -93,10 +123,12 @@ export function CustomSelect({
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('keydown', handleKeyDown);
 
-      // Focus search input if searchable
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 50);
+      // Focus search input if rendered
+      if (options.length > 5) {
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+        }, 30);
+      }
 
       return () => {
         window.removeEventListener('scroll', handleScrollOrResize, true);
@@ -105,7 +137,7 @@ export function CustomSelect({
         document.removeEventListener('keydown', handleKeyDown);
       };
     }
-  }, [isOpen, updatePosition]);
+  }, [isOpen, computeCoords, options.length]);
 
   const filteredOptions = searchQuery.trim()
     ? options.filter((o) => o.label.toLowerCase().includes(searchQuery.toLowerCase().trim()))
@@ -122,11 +154,11 @@ export function CustomSelect({
         ref={buttonRef}
         type="button"
         disabled={disabled}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         className={cn(
-          'w-full flex items-center justify-between gap-2 border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs transition-all hover:border-stone-300 dark:hover:border-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 disabled:opacity-50 disabled:pointer-events-none text-left',
+          'w-full flex items-center justify-between gap-2 border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs transition-all duration-150 hover:border-stone-300 dark:hover:border-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 disabled:opacity-50 disabled:pointer-events-none text-left select-none',
           sizeClasses[size],
-          isOpen && 'ring-2 ring-rose-500/20 border-rose-500'
+          isOpen && 'ring-2 ring-rose-500/20 border-rose-500 dark:border-rose-500'
         )}
       >
         <span className="flex items-center gap-1.5 truncate">
@@ -144,22 +176,23 @@ export function CustomSelect({
                 e.stopPropagation();
                 onChange('');
               }}
-              className="p-0.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded"
+              className="p-0.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded transition-colors"
             >
               <X className="h-3 w-3" />
             </span>
           )}
           <ChevronDown
             className={cn(
-              'h-3.5 w-3.5 text-stone-400 transition-transform duration-200',
+              'h-3.5 w-3.5 text-stone-400 transition-transform duration-150',
               isOpen && 'rotate-180 text-rose-500'
             )}
           />
         </div>
       </button>
 
-      {/* Portal Mounted Menu to prevent clipping in Modal/Overflow containers */}
+      {/* Portal Mounted Menu (Rendered ONLY when exact coordinates are ready) */}
       {isOpen &&
+        coords &&
         typeof document !== 'undefined' &&
         createPortal(
           <div
@@ -169,8 +202,10 @@ export function CustomSelect({
               left: `${coords.left}px`,
               minWidth: `${coords.width}px`,
               maxWidth: '360px',
+              transformOrigin: coords.placeAbove ? 'bottom left' : 'top left',
+              transform: coords.placeAbove ? 'translateY(-100%)' : 'none',
             }}
-            className="fixed z-50 max-h-64 overflow-y-auto rounded-xl border border-stone-200/90 dark:border-stone-800 bg-white dark:bg-stone-900 p-1.5 shadow-modal animate-in fade-in zoom-in-95 duration-150 text-stone-900 dark:text-stone-100"
+            className="fixed z-50 max-h-64 overflow-y-auto rounded-xl border border-stone-200/90 dark:border-stone-800 bg-white dark:bg-stone-900 p-1.5 shadow-modal text-stone-900 dark:text-stone-100 transition-all duration-150 animate-in fade-in zoom-in-95"
           >
             {/* Search filter if more than 5 options */}
             {options.length > 5 && (
@@ -181,7 +216,7 @@ export function CustomSelect({
                   placeholder="搜索选项..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-7 pr-2 py-1 text-xs rounded-lg bg-stone-50 dark:bg-stone-800 border border-stone-200/60 dark:border-stone-700 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                  className="w-full pl-7 pr-2 py-1 text-xs rounded-lg bg-stone-50 dark:bg-stone-800 border border-stone-200/60 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
                 />
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-stone-400" />
               </div>
