@@ -10,7 +10,10 @@
 [![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?logo=tailwind-css)](https://tailwindcss.com)
 [![SQLite FTS5](https://img.shields.io/badge/SQLite-FTS5-003B57?logo=sqlite)](https://sqlite.org)
+[![Showcase Page](https://img.shields.io/badge/Showcase-GitHub%20Pages-rose)](https://biaobiaobiao108.github.io/MaterialVault/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-rose.svg)](./LICENSE)
+
+[🌐 访问在线介绍展示页 (GitHub Pages)](https://biaobiaobiao108.github.io/MaterialVault/)
 
 </div>
 

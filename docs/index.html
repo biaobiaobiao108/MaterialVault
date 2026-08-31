@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Material Vault · 素材证据库</title>
+  <link rel="icon" type="image/png" href="./logo.png" />
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            rose: {
+              50: '#fff1f2',
+              100: '#ffe4e6',
+              200: '#fecdd3',
+              300: '#fda4af',
+              400: '#fb7185',
+              500: '#f43f5e',
+              600: '#e11d48',
+              700: '#be123c',
+              800: '#9f1239',
+              900: '#881337',
+              950: '#4c0519',
+            },
+            stone: {
+              50: '#fafaf9',
+              100: '#f5f5f4',
+              200: '#e7e5e4',
+              300: '#d6d3d1',
+              400: '#a8a29e',
+              500: '#78716c',
+              600: '#57534e',
+              700: '#44403c',
+              800: '#292524',
+              900: '#1c1917',
+              950: '#0c0a09',
+            }
+          },
+          boxShadow: {
+            'card': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05)',
+            '2xs': '0 1px 2px 0 rgba(0, 0, 0, 0.04)',
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    code, kbd, pre, .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+  </style>
+</head>
+<body class="bg-stone-50 dark:bg-stone-950 text-stone-800 dark:text-stone-200 antialiased selection:bg-rose-500/20 transition-colors duration-200">
+
+  <!-- Navigation Bar -->
+  <header class="sticky top-0 z-50 backdrop-blur-md bg-stone-50/85 dark:bg-stone-950/85 border-b border-stone-200/80 dark:border-stone-800/80">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl overflow-hidden shadow-card border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-0.5 flex items-center justify-center">
+          <img src="./logo.png" alt="Material Vault Logo" class="w-full h-full object-contain" />
+        </div>
+        <div class="flex flex-col">
+          <span class="font-bold text-base tracking-tight text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+            Material Vault
+            <span class="px-1.5 py-0.5 text-[10px] font-mono font-semibold rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400">
+              v1.0
+            </span>
+          </span>
+          <span class="text-[11px] text-stone-400 dark:text-stone-500 leading-none">素材证据库</span>
+        </div>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-6 text-xs font-medium text-stone-600 dark:text-stone-400">
+        <a href="#features" class="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">核心特性</a>
+        <a href="#preview" class="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">交互预览</a>
+        <a href="#architecture" class="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">技术架构</a>
+        <a href="#deployment" class="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">部署指南</a>
+      </nav>
+
+      <div class="flex items-center gap-2.5">
+        <!-- Theme Toggle -->
+        <button
+          id="theme-toggle"
+          type="button"
+          class="p-2 rounded-xl border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-900 text-stone-600 dark:text-stone-400 transition-all cursor-pointer"
+          title="切换深色/浅色模式"
+        >
+          <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
+          <i data-lucide="moon" class="w-4 h-4 block dark:hidden"></i>
+        </button>
+
+        <!-- GitHub Repo Button -->
+        <a
+          href="https://github.com/biaobiaobiao108/MaterialVault"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:hover:bg-white text-white dark:text-stone-900 font-medium text-xs shadow-card transition-all cursor-pointer"
+        >
+          <i data-lucide="github" class="w-4 h-4"></i>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="relative pt-16 pb-20 overflow-hidden">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 text-center">
+      <!-- Release Capsule -->
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-rose-500/20 bg-rose-500/5 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-medium mb-6 animate-pulse">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+        <span>专为视频创作者与调查型写作者量身打造</span>
+      </div>
+
+      <h1 class="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-stone-900 dark:text-stone-100 leading-tight sm:leading-tight">
+        零摩擦素材收件箱 <br class="hidden sm:inline" />
+        <span class="bg-gradient-to-r from-rose-600 via-rose-500 to-amber-500 bg-clip-text text-transparent">
+          网页与视频证据归档库
+        </span>
+      </h1>
+
+      <p class="mt-5 max-w-2xl mx-auto text-sm sm:text-base text-stone-600 dark:text-stone-400 leading-relaxed">
+        告别凌乱的书签栏与丢失的网页证据。粘贴 URL 自动提取 UP主 1080P 高清封面、正文 Clean Markdown 归档与 #标签 分类，秒级 FTS5 全文搜索。
+      </p>
+
+      <!-- Action Buttons -->
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+        <a
+          href="#deployment"
+          class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs sm:text-sm shadow-md shadow-rose-600/25 transition-all cursor-pointer"
+        >
+          <i data-lucide="rocket" class="w-4 h-4"></i>
+          <span>快速部署启动</span>
+        </a>
+
+        <button
+          onclick="copyDockerCommand()"
+          id="copy-btn"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-stone-300 dark:hover:border-stone-700 text-stone-700 dark:text-stone-300 font-medium text-xs sm:text-sm shadow-2xs transition-all cursor-pointer"
+        >
+          <i data-lucide="terminal" class="w-4 h-4 text-rose-500"></i>
+          <span id="copy-btn-text">docker compose up -d</span>
+          <i data-lucide="copy" class="w-3.5 h-3.5 text-stone-400"></i>
+        </button>
+      </div>
+
+      <!-- Quick Metrics Bar -->
+      <div class="mt-12 max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="p-4 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/60 dark:bg-stone-900/60 backdrop-blur-xs text-left">
+          <div class="text-xs text-stone-400 font-medium">常驻内存开销</div>
+          <div class="mt-1 text-xl sm:text-2xl font-bold font-mono text-rose-600 dark:text-rose-400">~15 MB</div>
+          <div class="text-[11px] text-stone-500 mt-0.5">原生 Bun + SQLite 极致轻量</div>
+        </div>
+        <div class="p-4 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/60 dark:bg-stone-900/60 backdrop-blur-xs text-left">
+          <div class="text-xs text-stone-400 font-medium">全文检索延迟</div>
+          <div class="mt-1 text-xl sm:text-2xl font-bold font-mono text-stone-900 dark:text-stone-100">&lt; 1 ms</div>
+          <div class="text-[11px] text-stone-500 mt-0.5">SQLite FTS5 原生虚拟表</div>
+        </div>
+        <div class="p-4 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/60 dark:bg-stone-900/60 backdrop-blur-xs text-left">
+          <div class="text-xs text-stone-400 font-medium">多媒体归档</div>
+          <div class="mt-1 text-xl sm:text-2xl font-bold font-mono text-stone-900 dark:text-stone-100">1080P</div>
+          <div class="text-[11px] text-stone-500 mt-0.5">B站/YouTube 原生高清封面</div>
+        </div>
+        <div class="p-4 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/60 dark:bg-stone-900/60 backdrop-blur-xs text-left">
+          <div class="text-xs text-stone-400 font-medium">资产去重算法</div>
+          <div class="mt-1 text-xl sm:text-2xl font-bold font-mono text-indigo-600 dark:text-indigo-400">SHA-256</div>
+          <div class="text-[11px] text-stone-500 mt-0.5">物理零拷贝去重存储</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Mockup / Showcase Section -->
+  <section id="preview" class="py-12 border-y border-stone-200/80 dark:border-stone-800 bg-stone-100/50 dark:bg-stone-900/30">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="text-center max-w-2xl mx-auto mb-10">
+        <h2 class="text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
+          0 空隙 3 列瀑布流与沉浸证据排版
+        </h2>
+        <p class="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-2">
+          大卡片与短笔记混排自动紧凑堆叠，消除空洞留白；内置 GFM Markdown 排版渲染。
+        </p>
+      </div>
+
+      <!-- App Window Frame -->
+      <div class="rounded-3xl border border-stone-200/90 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-2xl shadow-stone-200/80 dark:shadow-none overflow-hidden">
+        <!-- Browser Top Bar -->
+        <div class="h-10 px-4 bg-stone-100 dark:bg-stone-800/60 border-b border-stone-200/80 dark:border-stone-800 flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-full bg-rose-500/80"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-500/80"></span>
+            <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+          </div>
+          <div class="flex items-center gap-2 px-3 py-1 rounded-lg bg-white/70 dark:bg-stone-900/70 border border-stone-200/60 dark:border-stone-700/60 text-[11px] font-mono text-stone-400 w-64 justify-center">
+            <i data-lucide="lock" class="w-3 h-3 text-emerald-500"></i>
+            <span>http://localhost:3000/inbox</span>
+          </div>
+          <div class="w-12"></div>
+        </div>
+
+        <!-- App UI Body -->
+        <div class="p-6 sm:p-8 space-y-6">
+          <!-- Mockup Quick Capture Box -->
+          <div class="p-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-800/40 space-y-3">
+            <div class="flex items-center justify-between text-xs text-stone-500">
+              <span class="flex items-center gap-1.5 font-semibold text-stone-700 dark:text-stone-300">
+                <i data-lucide="plus-circle" class="w-4 h-4 text-rose-500"></i>
+                极速收集箱 (Ctrl+V 全局捕获)
+              </span>
+              <span class="text-[11px] font-mono text-stone-400">支持输入 #标签 自动关联</span>
+            </div>
+            <div class="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs text-stone-700 dark:text-stone-300 flex items-center justify-between">
+              <span>https://www.bilibili.com/video/BV1xx411c7mD 深度调查参考素材 #选题灵感 #硬核科技</span>
+              <span class="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-medium text-xs shrink-0">保存 (Ctrl+Enter)</span>
+            </div>
+          </div>
+
+          <!-- Mockup 3-Column Masonry Waterfall -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+            <!-- Card 1: Video Card with 16:9 Cover -->
+            <div class="rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 overflow-hidden shadow-2xs hover:border-rose-500/40 transition-all">
+              <div class="relative aspect-video bg-stone-900 overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 z-10"></div>
+                <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=800&auto=format&fit=crop" alt="Demo Cover" class="w-full h-full object-cover" />
+                <div class="absolute top-2.5 left-2.5 z-20 flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-[10px] font-semibold text-rose-400">
+                  <i data-lucide="play" class="w-3 h-3 fill-rose-400"></i>
+                  <span>Bilibili 1080P</span>
+                </div>
+                <div class="absolute bottom-2.5 right-2.5 z-20 px-1.5 py-0.5 rounded bg-black/70 text-[10px] font-mono text-white">
+                  18:42
+                </div>
+              </div>
+              <div class="p-4 space-y-2.5">
+                <h3 class="text-xs font-bold text-stone-900 dark:text-stone-100 line-clamp-2">
+                  【深度复盘】大语言模型原生多模态架构演进全解析
+                </h3>
+                <p class="text-[11px] text-stone-500 line-clamp-2">
+                  UP主：硬核计算所 · 详细拆解了从早期的晚期融合到原生跨模态架构的核心差异...
+                </p>
+                <div class="flex flex-wrap gap-1.5 pt-1">
+                  <span class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400">#AI架构</span>
+                  <span class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400">#深度长文</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2: Rich Markdown Note -->
+            <div class="rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 space-y-3 shadow-2xs hover:border-rose-500/40 transition-all">
+              <div class="flex items-center justify-between text-stone-400">
+                <span class="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                  <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                  <span>灵感备忘</span>
+                </span>
+                <span class="text-[10px] font-mono">10分钟前</span>
+              </div>
+              <h3 class="text-xs font-bold text-stone-900 dark:text-stone-100">
+                下期视频脚本框架构思
+              </h3>
+              <div class="p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/60 text-[11px] font-mono text-stone-600 dark:text-stone-300 space-y-1">
+                <div>- [x] 收集 5 篇权威论文证据</div>
+                <div>- [x] 提取对比表格与核心数据</div>
+                <div>- [ ] 导出 Markdown 证据包</div>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400">#脚本大纲</span>
+              </div>
+            </div>
+
+            <!-- Card 3: Web Archive Card -->
+            <div class="rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 space-y-2.5 shadow-2xs hover:border-rose-500/40 transition-all">
+              <div class="flex items-center justify-between text-stone-400">
+                <span class="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                  <span>nature.com</span>
+                </span>
+                <i data-lucide="star" class="w-3.5 h-3.5 text-amber-500 fill-amber-500"></i>
+              </div>
+              <h3 class="text-xs font-bold text-stone-900 dark:text-stone-100 line-clamp-2">
+                Quantum Supremacy Benchmarks in Modern Physical Computing
+              </h3>
+              <p class="text-[11px] text-stone-500 line-clamp-3">
+                正文已自动提取为 Clean Markdown 归档文件，脱机状态下随时查阅与检索，不受源站失效影响。
+              </p>
+              <div class="flex flex-wrap gap-1.5 pt-1">
+                <span class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400">#量子物理</span>
+                <span class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400">#证据归档</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 Core Features Grid -->
+  <section id="features" class="py-20">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="text-center max-w-2xl mx-auto mb-14">
+        <h2 class="text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
+          为高密度内容创作者精心打磨
+        </h2>
+        <p class="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-2">
+          拒绝繁琐的目录层级与沉重的笔记软件，一切围绕“极速收集、可靠归档、毫秒检索”。
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Feature 1 -->
+        <div class="p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-2.5 shadow-card hover:border-rose-500/30 transition-all">
+          <div class="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+            <i data-lucide="zap" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-sm font-bold text-stone-900 dark:text-stone-100">零摩擦极速收集</h3>
+          <p class="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+            页面任意处 Ctrl+V 全局捕获，后台异步提取，绝不打断记录思绪。
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-2.5 shadow-card hover:border-rose-500/30 transition-all">
+          <div class="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <i data-lucide="video" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-sm font-bold text-stone-900 dark:text-stone-100">视频原生高清封面</h3>
+          <p class="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+            直连 B站与 YouTube 官方 API 下载 1080P/720P 原生封面，杜绝截图黑边。
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-2.5 shadow-card hover:border-rose-500/30 transition-all">
+          <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <i data-lucide="layout-grid" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-sm font-bold text-stone-900 dark:text-stone-100">0 空隙 3 列瀑布流</h3>
+          <p class="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+            自适应 Masonry 布局按左右轮流紧凑堆叠，视频与短笔记混排无大面积空洞。
+          </p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-2.5 shadow-card hover:border-rose-500/30 transition-all">
+          <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <i data-lucide="file-code-2" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-sm font-bold text-stone-900 dark:text-stone-100">全栈 Markdown 排版</h3>
+          <p class="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+            卡片与详情弹窗全面支持 GFM 标题、代码高亮、表格、引用块与源码切换。
+          </p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-2.5 shadow-card hover:border-rose-500/30 transition-all">
+          <div class="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+            <i data-lucide="tag" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-sm font-bold text-stone-900 dark:text-stone-100">智能 #标签 提取</h3>
+          <p class="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+            输入 # 快捷联想上屏，自动提取关联并配备可视化的标签管理中心。
+          </p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-2.5 shadow-card hover:border-rose-500/30 transition-all">
+          <div class="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+            <i data-lucide="search" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-sm font-bold text-stone-900 dark:text-stone-100">SQLite FTS5 全文搜索</h3>
+          <p class="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+            毫秒级防抖中文检索标题、备注与正文全文，多维标签与域名交叉过滤。
+          </p>
+        </div>
+
+        <!-- Feature 7 -->
+        <div class="p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-2.5 shadow-card hover:border-rose-500/30 transition-all">
+          <div class="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 flex items-center justify-center">
+            <i data-lucide="cpu" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-sm font-bold text-stone-900 dark:text-stone-100">原生 Bun 极速单体</h3>
+          <p class="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+            零第三方运行依赖，常驻内存仅 ~15MB，无缝运行在各类 NAS 与 VPS。
+          </p>
+        </div>
+
+        <!-- Feature 8 -->
+        <div class="p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-2.5 shadow-card hover:border-rose-500/30 transition-all">
+          <div class="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+            <i data-lucide="shield-check" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-sm font-bold text-stone-900 dark:text-stone-100">安全鉴权与扩展 Token</h3>
+          <p class="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+            支持主密码访问保护与 30 天会话，独立 API Token 供官方扩展跨域保存。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture Comparison Section -->
+  <section id="architecture" class="py-16 border-t border-stone-200/80 dark:border-stone-800 bg-stone-100/40 dark:bg-stone-900/20">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6">
+      <div class="text-center mb-10">
+        <h2 class="text-2xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
+          轻量架构与传统方案对比
+        </h2>
+        <p class="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-1">
+          为什么选择原生 Bun + SQLite 单体架构？
+        </p>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-card">
+        <table class="w-full text-xs text-left border-collapse">
+          <thead>
+            <tr class="border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 text-stone-500">
+              <th class="p-3.5 font-semibold">对比维度</th>
+              <th class="p-3.5 font-semibold text-rose-600 dark:text-rose-400">Material Vault (Bun + SQLite)</th>
+              <th class="p-3.5 font-semibold">传统重量级知识库 / Notion 类</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-stone-100 dark:divide-stone-800/80">
+            <tr>
+              <td class="p-3.5 font-medium text-stone-900 dark:text-stone-100">内存占用 (RAM)</td>
+              <td class="p-3.5 font-bold font-mono text-rose-600 dark:text-rose-400">~15 MB (极轻常驻)</td>
+              <td class="p-3.5 text-stone-400">500 MB ~ 2 GB (Electron / 重型 JVM)</td>
+            </tr>
+            <tr>
+              <td class="p-3.5 font-medium text-stone-900 dark:text-stone-100">数据所有权与格式</td>
+              <td class="p-3.5 text-stone-700 dark:text-stone-300">本地 SQLite + 原生 Markdown + SHA256 资产池</td>
+              <td class="p-3.5 text-stone-400">私有云端格式 / 难以完整离线备份</td>
+            </tr>
+            <tr>
+              <td class="p-3.5 font-medium text-stone-900 dark:text-stone-100">全文检索技术</td>
+              <td class="p-3.5 text-stone-700 dark:text-stone-300">SQLite FTS5 原生虚拟表 (毫秒级响应)</td>
+              <td class="p-3.5 text-stone-400">Elasticsearch (重型依赖) 或前端纯 JS 遍历</td>
+            </tr>
+            <tr>
+              <td class="p-3.5 font-medium text-stone-900 dark:text-stone-100">容器镜像体积</td>
+              <td class="p-3.5 font-bold font-mono text-rose-600 dark:text-rose-400">&lt; 100 MB (多阶段 Alpine 极速分发)</td>
+              <td class="p-3.5 text-stone-400">800 MB ~ 2.5 GB (多容器依赖编排)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Deployment & Quickstart Section -->
+  <section id="deployment" class="py-20">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 space-y-10">
+      <div class="text-center">
+        <h2 class="text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
+          开箱即用 · 快速部署
+        </h2>
+        <p class="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-2">
+          支持 Docker 一键启动或本地极速源码运行。
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Option 1: Docker Compose -->
+        <div class="p-6 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-4 shadow-card">
+          <div class="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-sm">
+            <i data-lucide="container" class="w-4 h-4"></i>
+            <span>方案 A：Docker Compose 部署 (推荐)</span>
+          </div>
+          <p class="text-xs text-stone-500 dark:text-stone-400">
+            拉取 GHCR 官方多架构镜像（支持 x86_64 与 ARM64/NAS），一键常驻运行：
+          </p>
+          <pre class="p-3.5 rounded-xl bg-stone-950 text-stone-200 text-xs font-mono overflow-x-auto leading-relaxed"><code># 1. 启动容器
+docker compose up -d
+
+# 2. 访问服务
+http://localhost:3000</code></pre>
+        </div>
+
+        <!-- Option 2: Bun Native -->
+        <div class="p-6 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-4 shadow-card">
+          <div class="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-sm">
+            <i data-lucide="terminal" class="w-4 h-4"></i>
+            <span>方案 B：Bun 本地开发与运行</span>
+          </div>
+          <p class="text-xs text-stone-500 dark:text-stone-400">
+            克隆源码后毫秒级热重载启动：
+          </p>
+          <pre class="p-3.5 rounded-xl bg-stone-950 text-stone-200 text-xs font-mono overflow-x-auto leading-relaxed"><code># 1. 安装与构建
+bun install
+bun run build
+
+# 2. 启动生产服务
+bun start</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-10 border-t border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-950 text-center text-xs text-stone-400 space-y-2">
+    <div class="flex items-center justify-center gap-2">
+      <img src="./logo.png" alt="Logo" class="w-5 h-5 rounded object-contain" />
+      <span class="font-bold text-stone-700 dark:text-stone-300">Material Vault</span>
+      <span>· 专为视频创作者打造的素材证据库</span>
+    </div>
+    <p>Released under the <a href="https://github.com/biaobiaobiao108/MaterialVault/blob/master/LICENSE" target="_blank" class="underline hover:text-rose-500">MIT License</a>.</p>
+  </footer>
+
+  <script>
+    // Lucide Icons Initialization
+    lucide.createIcons();
+
+    // Theme Toggle Logic
+    const themeBtn = document.getElementById('theme-toggle');
+    const isDarkStored = localStorage.getItem('mv_theme') === 'dark' ||
+      (!localStorage.getItem('mv_theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+    if (isDarkStored) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    themeBtn.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('mv_theme', isDark ? 'dark' : 'light');
+      lucide.createIcons();
+    });
+
+    // Copy Docker Command
+    function copyDockerCommand() {
+      const cmd = "docker compose up -d";
+      navigator.clipboard.writeText(cmd).then(() => {
+        const textSpan = document.getElementById('copy-btn-text');
+        const oldText = textSpan.innerText;
+        textSpan.innerText = "已复制指令！";
+        setTimeout(() => {
+          textSpan.innerText = oldText;
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>
