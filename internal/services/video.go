@@ -189,17 +189,25 @@ func fetchBilibiliVideo(ctx context.Context, info *VideoInfo) (*VideoResult, err
 	title := strings.TrimSpace(apiResp.Data.Title)
 	title = biliTitleClean.ReplaceAllString(title, "")
 
+	// Normalize Bilibili cover URL (prepend https: if scheme is missing)
+	picURL := apiResp.Data.Pic
+	if strings.HasPrefix(picURL, "//") {
+		picURL = "https:" + picURL
+	} else if strings.HasPrefix(picURL, "http://") {
+		picURL = "https://" + strings.TrimPrefix(picURL, "http://")
+	}
+
 	res := &VideoResult{
 		Platform:    "bilibili",
 		VideoID:     info.VideoID,
 		Title:       title,
 		Description: strings.TrimSpace(apiResp.Data.Desc),
 		Author:      strings.TrimSpace(apiResp.Data.Owner.Name),
-		CoverURL:    apiResp.Data.Pic,
+		CoverURL:    picURL,
 		Duration:    apiResp.Data.Duration,
 	}
 
-	// Download cover image with Referer to avoid 403 Forbidden
+	// Download original creator-uploaded cover image with Referer header
 	if res.CoverURL != "" {
 		coverData, mime, err := downloadImage(ctx, res.CoverURL, "https://www.bilibili.com/")
 		if err == nil {
@@ -224,7 +232,7 @@ func fetchYouTubeVideo(ctx context.Context, info *VideoInfo) (*VideoResult, erro
 		VideoID:  info.VideoID,
 	}
 
-	// 1. Try oEmbed API
+	// 1. Fetch metadata from oEmbed API
 	oEmbedURL := fmt.Sprintf("https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=%s&format=json", info.VideoID)
 	req, err := http.NewRequestWithContext(ctx, "GET", oEmbedURL, nil)
 	if err == nil {
@@ -237,32 +245,27 @@ func fetchYouTubeVideo(ctx context.Context, info *VideoInfo) (*VideoResult, erro
 				if err := json.NewDecoder(resp.Body).Decode(&oembed); err == nil {
 					res.Title = strings.TrimSpace(oembed.Title)
 					res.Author = strings.TrimSpace(oembed.AuthorName)
-					res.CoverURL = oembed.ThumbnailURL
 				}
 			}
 		}
 	}
 
-	// 2. Fallback thumbnail candidate URLs if oEmbed didn't provide one
-	if res.CoverURL == "" {
-		res.CoverURL = fmt.Sprintf("https://i.ytimg.com/vi/%s/hqdefault.jpg", info.VideoID)
+	// 2. Prioritize official uncropped full-resolution cover (maxresdefault -> sddefault -> hqdefault)
+	coverCandidates := []string{
+		fmt.Sprintf("https://i.ytimg.com/vi/%s/maxresdefault.jpg", info.VideoID),
+		fmt.Sprintf("https://i.ytimg.com/vi/%s/sddefault.jpg", info.VideoID),
+		fmt.Sprintf("https://i.ytimg.com/vi/%s/hqdefault.jpg", info.VideoID),
+		fmt.Sprintf("https://img.youtube.com/vi/%s/hqdefault.jpg", info.VideoID),
 	}
 
-	// 3. Download thumbnail
-	if res.CoverURL != "" {
-		coverData, mime, err := downloadImage(ctx, res.CoverURL, "https://www.youtube.com/")
-		if err == nil {
+	for _, candURL := range coverCandidates {
+		coverData, mime, err := downloadImage(ctx, candURL, "https://www.youtube.com/")
+		if err == nil && len(coverData) > 0 {
+			res.CoverURL = candURL
 			res.CoverData = coverData
 			res.CoverMime = mime
 			res.CoverFileName = "thumbnail.jpg"
-		} else {
-			// Fallback to hqdefault
-			fallbackURL := fmt.Sprintf("https://img.youtube.com/vi/%s/hqdefault.jpg", info.VideoID)
-			if fallbackData, fallbackMime, fErr := downloadImage(ctx, fallbackURL, "https://www.youtube.com/"); fErr == nil {
-				res.CoverData = fallbackData
-				res.CoverMime = fallbackMime
-				res.CoverFileName = "thumbnail.jpg"
-			}
+			break
 		}
 	}
 

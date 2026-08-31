@@ -331,8 +331,8 @@ func HandleRetryItem(assetsDir string) http.HandlerFunc {
 			utils.JSONError(w, http.StatusNotFound, "素材不存在")
 			return
 		}
-		if itType.String != "url" || (!sourceURL.Valid && !canonicalURL.Valid) {
-			utils.JSONError(w, http.StatusBadRequest, "仅支持 URL 类型的素材重新抓取")
+		if (itType.String != "url" && itType.String != "video") || (!sourceURL.Valid && !canonicalURL.Valid) {
+			utils.JSONError(w, http.StatusBadRequest, "仅支持包含源链接的素材重新抓取")
 			return
 		}
 
