@@ -4,7 +4,7 @@
 
 # Material Vault · 素材证据库
 
-**专为视频创作者打造的：素材收件箱 + 网页证据归档库 + 极速标签检索系统**
+**专为视频创作者打造的：素材收件箱 + 网页与视频证据归档库 + 极速标签检索系统**
 
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://go.dev)
 [![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev)
@@ -18,10 +18,10 @@
 
 ## 📖 产品介绍
 
-**Material Vault** 解决创作者在收集素材时的核心痛点：
+**Material Vault** 专为视频创作者解决灵感记录、证据抓取与素材检索的核心痛点：
 
 ```text
-发现灵感/证据 → 两步内极速保存 (Ctrl+V，支持 #标签 自动归类) → 自动后台归档正文与快照 → 暂存 Inbox → 毫秒级 FTS5 搜索与标签过滤
+发现灵感/证据/视频 → 两步内极速保存 (Ctrl+V，支持 #标签 自动归类) → 自动后台归档正文与高清封面 → 暂存 Inbox → 毫秒级 FTS5 搜索与标签过滤
 ```
 
 ### 核心特性
@@ -29,13 +29,20 @@
 - ⚡ **零摩擦极速收集 (Capture Friction 最小化)**：
   - 复制链接直接 `Ctrl + V`（支持页面任意处全局粘贴捕获），无需等待即刻返回 202 保存成功；
   - 同一输入框支持自由记录灵感备忘（Note）、拖入本地文件或直接粘贴截图。
+- 🎬 **Bilibili / YouTube 视频原生高清封面与证据归档**：
+  - 自动识别 Bilibili（`bilibili.com`、`b23.tv` 短链重定向展开）与 YouTube 视频链接；
+  - 自动解析并下载 UP 主/创作者原生上传的 **1080P/720P 级别最高清封面**（杜绝网页截图与带黑边的缩略图），存入本地 SHA-256 去重资产库；
+  - 卡片顶部 16:9 比例展示高清封面与 Glassmorphism 半透明播放徽标，详情页支持一键直达原平台播放。
+- 🧱 **0 空隙响应式 3 列卡片瀑布流 (Masonry Grid)**：
+  - 智能解决视频大卡片与纯文本小卡片混排时的行高空白问题；
+  - 按左右轮流由新到旧紧凑堆叠排版，在桌面端（3 列）、平板端（2 列）与移动端（1 列）自适应流畅呈现。
+- 📝 **Markdown 富文本排版渲染与双模式切换**：
+  - 详情弹窗内置现代 GFM Markdown 渲染引擎，支持标题、列表、表格、代码块与引用块排版；
+  - 提供**「排版预览 / 查看源码」**一键双模式切换与 Markdown 证据文件直接下载。
 - 🏷️ **智能 `#标签` 自动提取与双向关联**：
   - 在输入框键入 `#` 即时弹出已有标签联想浮层，按 `Tab` / `Enter` 快捷上屏；
   - 保存时自动在数据库中创建不存在的标签并与素材双向关联；
   - 设置页内置「标签管理中心」，支持查看各标签关联素材量、快速重命名与清理。
-- 🖼️ **素材卡片缩略图与悬浮快捷动作**：
-  - 图片素材与网页截图在卡片直接渲染温润缩略图；
-  - 鼠标悬浮即可「一键复制链接/正文」或「新标签页直达原网页」。
 - 📋 **一键复制 AI 创作证据引用包**：
   - 证据详情弹窗支持一键将素材标题、来源、标签、备注及正文打包为标准 Markdown 引用块，无缝喂给写稿大模型。
 - 🔍 **毫秒级防抖全文检索与多维过滤**：
@@ -55,16 +62,17 @@
 
 ## 🛠️ 技术架构
 
-本项目采用 **Go 原生后端 + React 18 SPA 前端** 现代架构：
+本项目采用 **Go 原生单体后端 + React 18 SPA 前端** 现代架构：
 
 | 领域 | 技术选型 | 说明 |
 | :--- | :--- | :--- |
 | **运行时与服务端** | `Go >= 1.22` (原生 `net/http`) | 纯原生高性能 HTTP 路由、异步 Goroutine 流水线与单二进制分发 |
 | **数据库** | `modernc.org/sqlite` | 纯 Go 编写、无 CGO 依赖的嵌入式 SQLite，位于 `./data/vault.db` |
 | **全文检索** | `SQLite FTS5` (unicode61) | 毫秒级标题、备注、URL 及正文全文检索，三向触发器自动同步 |
-| **正文提取与转换** | `go-readability` + `html-to-markdown` | 网页 Clean Markdown 提取与证据归档 |
-| **前端框架** | `React 18` + `TypeScript` + `Vite` | 极速现代前端单页应用，位于 `./src` |
+| **视频与网页提取** | B站/YouTube 专用解析 + `go-readability` | 原生视频封面下载、Clean Markdown 提取与证据归档 |
+| **前端框架** | `React 18` + `TypeScript` + `Vite` | 现代极速单页应用，位于 `./src` |
 | **数据请求** | `@tanstack/react-query` | 声明式数据获取与实时缓存管理 |
+| **富文本与排版** | `react-markdown` + `remark-gfm` | 现代化 Markdown 渲染与 GFM 表格/清单支持 |
 | **样式与图标** | `Tailwind CSS` + `Lucide Icons` | 遵循 Stone + Rose 温润编辑部设计规范 |
 
 ---
@@ -129,10 +137,10 @@ MaterialVault/
 ├── cmd/
 │   └── server/              # Go 服务端主入口 (main.go)
 ├── internal/                # Go 内部业务与底层核心包
-│   ├── config/              # 运行配置与路径管理
+│   ├── config/              # 运行配置与自动路径识别 (config.go)
 │   ├── db/                  # 数据层 (db.go, models.go, seed.go)
 │   ├── handlers/            # REST API 路由处理器 (items, tags, search, assets, uploads, stats)
-│   ├── services/            # 核心业务 (capture.go, storage.go, search.go)
+│   ├── services/            # 核心业务 (capture.go, video.go, storage.go, search.go)
 │   └── utils/               # 响应封装、文本与 URL 清洗
 ├── data/                    # 本地数据目录 (已 gitignore)
 │   ├── vault.db             # SQLite 数据库与 FTS5 虚拟表
@@ -141,7 +149,7 @@ MaterialVault/
 ├── public/                  # 静态资源 (小熊猫 mascot logo.png, favicon.png)
 ├── src/                     # React 前端代码
 │   ├── components/          # 业务组件 (QuickCapture, ItemCard, Modals, BatchBar)
-│   │   └── ui/              # 原子 UI 组件 (Button, Badge, Modal, ConfirmDialog, CustomSelect, DateInput)
+│   │   └── ui/              # 原子 UI 组件 (MasonryGrid, MarkdownRenderer, Button, Badge, Modal...)
 │   ├── pages/               # 页面 (Inbox, Items, Search, Settings)
 │   ├── lib/                 # 工具库 (api.ts, theme.tsx, types.ts, utils.ts)
 │   ├── App.tsx              # 路由配置
