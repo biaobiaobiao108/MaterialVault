@@ -175,7 +175,16 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
       const formData = new FormData();
       pendingFiles.forEach((p) => formData.append('file', p.file));
       if (trimmed) {
-        formData.append('description', trimmed);
+        const lines = trimmed.split('\n');
+        const firstLine = lines.find((l) => l.trim().length > 0);
+        if (firstLine) {
+          const firstLineIdx = lines.indexOf(firstLine);
+          formData.append('title', firstLine.trim());
+          const rest = lines.slice(firstLineIdx + 1).join('\n').trim();
+          if (rest) {
+            formData.append('description', rest);
+          }
+        }
       }
       if (selectedTagId) {
         formData.append('tagIds', selectedTagId);

@@ -31,6 +31,19 @@ func HandleUploads(assetsDir string) http.HandlerFunc {
 		description := strings.TrimSpace(r.FormValue("description"))
 		tagIDs := form.Value["tagIds"]
 
+		// If title is empty but description is provided, extract first line as title
+		if title == "" && description != "" {
+			lines := strings.Split(description, "\n")
+			for i, line := range lines {
+				trimmedLine := strings.TrimSpace(line)
+				if trimmedLine != "" && title == "" {
+					title = trimmedLine
+					description = strings.TrimSpace(strings.Join(lines[i+1:], "\n"))
+					break
+				}
+			}
+		}
+
 		var createdItems []db.Item
 
 		for _, f := range files {
