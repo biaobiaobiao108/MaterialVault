@@ -14,10 +14,11 @@ import { api } from '../lib/api';
 import { useToast } from './ui/Toast';
 import { Button } from './ui/Button';
 import { CustomSelect } from './ui/CustomSelect';
-import { cn } from '../lib/utils';
+import { cn, formatBytes } from '../lib/utils';
 
 export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
   const [content, setContent] = useState('');
+  const [pendingFiles, setPendingFiles] = useState<{ file: File; previewUrl?: string }[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedTagId, setSelectedTagId] = useState<string>('');
   const [hashtagQuery, setHashtagQuery] = useState<string | null>(null);
@@ -146,7 +147,12 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
   const uploadMutation = useMutation({
     mutationFn: api.uploadFiles,
     onSuccess: (data) => {
-      toast.success(`成功保存 ${data.items.length} 个文件/截图`, '文件已归档');
+      toast.success(`成功保存 ${data.items.length} 个附件素材`, '归档成功');
+      pendingFiles.forEach((p) => p.previewUrl && URL.revokeObjectURL(p.previewUrl));
+      setPendingFiles([]);
+      setContent('');
+      setSelectedTagId('');
+      setHashtagQuery(null);
       queryClient.invalidateQueries({ queryKey: ['items'] });
       queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
@@ -160,21 +166,38 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = content.trim();
-    if (!trimmed) return;
+    if (!trimmed && pendingFiles.length === 0) return;
 
     const tagIds = selectedTagId ? [selectedTagId] : undefined;
 
+    // Case 1: Upload staged files with user's written note & tags
+    if (pendingFiles.length > 0) {
+      const formData = new FormData();
+      pendingFiles.forEach((p) => formData.append('file', p.file));
+      if (trimmed) {
+        formData.append('description', trimmed);
+      }
+      if (selectedTagId) {
+        formData.append('tagIds', selectedTagId);
+      }
+      uploadMutation.mutate(formData);
+      return;
+    }
+
+    // Case 2: URL capture
     if (isUrl) {
       urlMutation.mutate({
         url: trimmed,
         tagIds,
       });
-    } else {
-      noteMutation.mutate({
-        content: trimmed,
-        tagIds,
-      });
+      return;
     }
+
+    // Case 3: Note
+    noteMutation.mutate({
+      content: trimmed,
+      tagIds,
+    });
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -239,11 +262,11 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
       }
     }
 
-    // Ctrl+Enter or Cmd+Enter to submit note; Enter for single-line URL
+    // Ctrl+Enter or Cmd+Enter to submit; Enter for single-line URL (when no pending files)
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       handleSubmit();
-    } else if (e.key === 'Enter' && !e.shiftKey && isUrl) {
+    } else if (e.key === 'Enter' && !e.shiftKey && isUrl && pendingFiles.length === 0) {
       e.preventDefault();
       handleSubmit();
     }
@@ -251,13 +274,12 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
 
   const handleFiles = (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
-    const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-      formData.append('file', files[i]);
-    }
-    if (selectedTagId) formData.append('tagIds', selectedTagId);
-
-    uploadMutation.mutate(formData);
+    const newPending = Array.from(files).map((file) => ({
+      file,
+      previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+    }));
+    setPendingFiles((prev) => [...prev, ...newPending]);
+    textareaRef.current?.focus();
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -388,6 +410,49 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
           )}
         </div>
 
+        {/* Staged Pending Files / Images Preview Tray */}
+        {pendingFiles.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap pt-2.5 pb-1">
+            {pendingFiles.map((p, idx) => (
+              <div
+                key={idx}
+                className="group/file flex items-center gap-2 p-1.5 pr-2.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/70 shadow-2xs text-xs animate-in fade-in zoom-in-95 duration-100"
+              >
+                {p.previewUrl ? (
+                  <img
+                    src={p.previewUrl}
+                    alt={p.file.name}
+                    className="h-9 w-12 object-cover rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-900 shadow-2xs"
+                  />
+                ) : (
+                  <div className="h-9 w-9 flex items-center justify-center rounded-lg bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300">
+                    <Paperclip className="h-4 w-4" />
+                  </div>
+                )}
+                <div className="min-w-0 max-w-[130px]">
+                  <div className="truncate font-semibold text-stone-800 dark:text-stone-200 text-[11px] leading-tight" title={p.file.name}>
+                    {p.file.name}
+                  </div>
+                  <div className="text-[10px] text-stone-400 font-mono">
+                    {formatBytes(p.file.size)}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+                    setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
+                  }}
+                  className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                  title="移除此附件"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Real-time Extracted Hashtag Badges */}
         {extractedTags.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap pt-1.5 pb-1 text-xs">
@@ -462,18 +527,36 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
 
           <div className="flex items-center gap-2 ml-auto">
             <span className="hidden sm:inline text-[11px] text-stone-400 font-mono">
-              {isUrl ? '按 Enter 保存' : 'Ctrl+Enter 提交'}
+              {pendingFiles.length > 0
+                ? 'Ctrl+Enter 提交'
+                : isUrl
+                ? '按 Enter 保存'
+                : 'Ctrl+Enter 提交'}
             </span>
             <Button
               type="submit"
               variant="primary"
               size="sm"
               loading={isSubmitting}
-              disabled={!content.trim()}
+              disabled={!content.trim() && pendingFiles.length === 0}
               className="gap-1.5 font-bold"
             >
-              {isUrl ? <Link2 className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
-              <span>保存素材</span>
+              {pendingFiles.length > 0 ? (
+                <>
+                  <Paperclip className="h-3.5 w-3.5" />
+                  <span>保存附件 ({pendingFiles.length})</span>
+                </>
+              ) : isUrl ? (
+                <>
+                  <Link2 className="h-3.5 w-3.5" />
+                  <span>抓取网页</span>
+                </>
+              ) : (
+                <>
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>记录备忘</span>
+                </>
+              )}
             </Button>
           </div>
         </div>
