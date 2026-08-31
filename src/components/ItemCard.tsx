@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Item } from '../lib/types';
 import { Badge } from './ui/Badge';
+import { MarkdownRenderer } from './ui/MarkdownRenderer';
 import { useToast } from './ui/Toast';
 import { cn, formatDate } from '../lib/utils';
 
@@ -252,13 +253,13 @@ export function ItemCard({
 
             {/* Description / Content text */}
             {item.description ? (
-              <p className="mt-1.5 text-xs sm:text-sm text-stone-600 dark:text-stone-300 line-clamp-2 leading-relaxed">
-                {item.description}
-              </p>
+              <div className="mt-1.5 max-h-24 overflow-hidden text-xs text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-3">
+                <MarkdownRenderer content={item.description} compact />
+              </div>
             ) : item.contentText ? (
-              <p className="mt-1.5 text-xs text-stone-500 dark:text-stone-400 line-clamp-2 font-mono leading-relaxed bg-stone-50 dark:bg-stone-800/40 p-2 rounded-lg border border-stone-100 dark:border-stone-800/50">
-                {item.contentText.slice(0, 160)}
-              </p>
+              <div className="mt-1.5 max-h-24 overflow-hidden text-xs text-stone-500 dark:text-stone-400 font-mono leading-relaxed bg-stone-50 dark:bg-stone-800/40 p-2 rounded-lg border border-stone-100 dark:border-stone-800/50 line-clamp-3">
+                <MarkdownRenderer content={item.contentText.slice(0, 200)} compact />
+              </div>
             ) : null}
           </div>
 
@@ -376,13 +377,13 @@ export function ItemCard({
 
               {/* Description snippet / Note text */}
               {item.description ? (
-                <p className="mt-1.5 text-xs sm:text-sm text-stone-600 dark:text-stone-300 line-clamp-2 leading-relaxed">
-                  {item.description}
-                </p>
+                <div className="mt-1.5 max-h-24 overflow-hidden text-xs text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-3">
+                  <MarkdownRenderer content={item.description} compact />
+                </div>
               ) : item.contentText ? (
-                <p className="mt-1.5 text-xs text-stone-500 dark:text-stone-400 line-clamp-2 font-mono leading-relaxed bg-stone-50 dark:bg-stone-800/40 p-2 rounded-lg border border-stone-100 dark:border-stone-800/50">
-                  {item.contentText.slice(0, 160)}
-                </p>
+                <div className="mt-1.5 max-h-24 overflow-hidden text-xs text-stone-500 dark:text-stone-400 font-mono leading-relaxed bg-stone-50 dark:bg-stone-800/40 p-2 rounded-lg border border-stone-100 dark:border-stone-800/50 line-clamp-3">
+                  <MarkdownRenderer content={item.contentText.slice(0, 200)} compact />
+                </div>
               ) : null}
             </div>
 
