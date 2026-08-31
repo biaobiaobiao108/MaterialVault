@@ -34,6 +34,7 @@
 | **前端框架** | `React 18` + `TypeScript` + `Vite` | 单页应用，位于 `./src` |
 | **数据请求** | `@tanstack/react-query` | 声明式数据获取与实时缓存管理 |
 | **样式与组件** | `Tailwind CSS` + `Lucide Icons` | 遵循 Stone + Rose 温润编辑部设计规范 |
+| **容器化与 CI/CD** | `Docker` (Multi-stage) + `GHCR` | 多架构自动化构建（AMD64/ARM64）与 Git Tag 自动 Release |
 
 ---
 
@@ -41,6 +42,8 @@
 
 ```text
 MaterialVault/
+├── .github/
+│   └── workflows/           # CI/CD 自动化工作流 (docker-release.yml)
 ├── server/                  # Bun 原生服务端源码
 │   ├── index.ts             # 服务端主入口 (Bun.serve 路由分发与静态托管)
 │   ├── db.ts                # 数据库核心 (bun:sqlite 初始化、表结构与 FTS5 触发器)
@@ -59,6 +62,9 @@ MaterialVault/
 │   ├── lib/                 # 工具库 (api.ts, theme.tsx, types.ts, utils.ts)
 │   ├── App.tsx              # 路由配置
 │   └── index.css            # 基础样式与 Light/Dark 设计令牌
+├── Dockerfile               # 生产多阶段镜像构建配置
+├── docker-compose.yml       # 容器快速编排配置
+├── .dockerignore
 ├── package.json
 └── tsconfig.json
 ```
@@ -67,9 +73,8 @@ MaterialVault/
 
 ## 4. 核心业务设计原则
 
-### 4.1 Capture Friction 最小化 & `#标签` 自动提取
-- 用户粘贴 URL、文字或拖入文件后，立即返回 202 并提示保存成功。
-- 在输入框或正文任意位置输入 `#标签名`，前端实时高亮展示，后端保存时自动创建并关联标签。
+### 4.1 Capture Friction 最小化 & 多模态暂存
+- 用户粘贴 URL、文字或拖入/粘贴截图后，自动暂存为待提交托盘，允许用户继续编写第一行标题、笔记与 `#标签`。
 - 耗时的网络请求、HTML 解析、Markdown 提取与视频封面下载**在后台异步执行**，绝不阻塞用户记录思路。
 
 ### 4.2 归档失败 ≠ 保存失败 (Archive Resilience)
@@ -80,10 +85,11 @@ MaterialVault/
 - 所有上传的图片、PDF、附件存入 `./data/assets/` 时，必须以文件内容的 `SHA-256` 散列命名。
 - 相同文件重复上传时自动复用同一物理资产，不同 Item 仅在数据库中引用同一 `Asset`。
 
-### 4.4 状态严格解耦
-- `organizationStatus`: `inbox`（待整理）/ `organized`（已整理）/ `archived`（已归档）
-- `processingStatus`: `pending` / `processing` / `ready` / `failed`
-- 两者独立维护，不得相互覆盖。
+### 4.4 0 空隙响应式 3 列瀑布流 (Masonry Grid)
+- 严禁使用导致行高空洞的传统 Grid，统一使用 `MasonryGrid` 按左右轮流由新到旧紧凑堆叠，消除视频大卡片与文本小卡片混排时的空白空隙。
+
+### 4.5 Markdown 全栈排版规范
+- 卡片摘要与详情弹窗统一接入 `MarkdownRenderer`，支持 GFM 标题、代码高亮、表格、引用块与清单。
 
 ---
 
@@ -101,6 +107,13 @@ bun run build
 
 # 4. 启动生产服务
 bun start
+
+# 5. Docker 容器一键启动
+docker compose up -d
+
+# 6. 发布新版本并触发 GitHub Actions 打包与 Release
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 ---
