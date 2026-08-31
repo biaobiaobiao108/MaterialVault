@@ -24,6 +24,7 @@ import { Item, Asset } from '../lib/types';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
+import { CustomSelect } from './ui/CustomSelect';
 import { ConfirmDialog } from './ui/ConfirmDialog';
 import { useToast } from './ui/Toast';
 import { formatDate, formatBytes } from '../lib/utils';
@@ -315,24 +316,28 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
                     </button>
                   </span>
                 ))}
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      linkTopicMutation.mutate(e.target.value);
-                      e.target.value = '';
-                    }
-                  }}
-                  className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-0.5 text-xs text-stone-600 dark:text-stone-300 cursor-pointer"
-                >
-                  <option value="">+ 关联新选题</option>
-                  {topicsData?.topics
-                    .filter((t) => !item.topics?.some((it) => it.id === t.id))
-                    .map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.title}
-                      </option>
-                    ))}
-                </select>
+                <div className="w-36 sm:w-44">
+                  <CustomSelect
+                    size="sm"
+                    value=""
+                    onChange={(val) => {
+                      if (val) {
+                        linkTopicMutation.mutate(val);
+                      }
+                    }}
+                    placeholder="+ 关联新选题"
+                    options={[
+                      { value: '', label: '+ 关联新选题' },
+                      ...(topicsData?.topics
+                        .filter((t) => !item.topics?.some((it) => it.id === t.id))
+                        .map((t) => ({
+                          value: t.id,
+                          label: t.title,
+                          icon: <FolderKanban className="h-3 w-3 text-indigo-500" />,
+                        })) || []),
+                    ]}
+                  />
+                </div>
               </div>
 
               {/* Tag association */}

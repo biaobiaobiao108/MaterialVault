@@ -95,6 +95,7 @@ MaterialVault/
 - **弹窗与交互规范**：
   - 严格禁止使用浏览器原生 `window.alert`、`window.confirm`、`window.prompt`；
   - 弹窗统一使用基于 Portal 挂载的 `Modal` / `ConfirmDialog`；
+  - **下拉菜单必须统一使用项目专用的 `CustomSelect` 组件**（基于 Portal 挂载浮层，支持搜索过滤与键盘无障碍交互），**严格禁止使用浏览器原生 `<select>` 标签**；
   - 即时反馈统一使用 `useToast()`。
 - **排版与现代 CSS**：
   - 标题启用 `text-wrap: balance`，长文本启用 `text-wrap: pretty`；

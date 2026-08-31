@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useToast } from './ui/Toast';
 import { Button } from './ui/Button';
+import { CustomSelect } from './ui/CustomSelect';
 import { cn } from '../lib/utils';
 
 export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
@@ -212,37 +213,39 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
             </button>
 
             {/* Quick Topic Selector */}
-            <div className="relative">
-              <select
+            <div className="w-36 sm:w-40">
+              <CustomSelect
+                size="sm"
                 value={selectedTopicId}
-                onChange={(e) => setSelectedTopicId(e.target.value)}
-                className="appearance-none bg-stone-100 dark:bg-stone-800/80 border border-stone-200/60 dark:border-stone-700/60 rounded-lg pl-2 pr-6 py-1 text-xs text-stone-700 dark:text-stone-300 font-medium focus:outline-none focus:ring-1 focus:ring-rose-500 cursor-pointer"
-              >
-                <option value="">+ 关联选题</option>
-                {topicsData?.topics.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.title}
-                  </option>
-                ))}
-              </select>
-              <FolderKanban className="pointer-events-none absolute right-1.5 top-1.5 h-3.5 w-3.5 text-stone-400" />
+                onChange={setSelectedTopicId}
+                placeholder="+ 关联选题"
+                options={[
+                  { value: '', label: '无选题关联' },
+                  ...(topicsData?.topics.map((t) => ({
+                    value: t.id,
+                    label: t.title,
+                    icon: <FolderKanban className="h-3 w-3 text-indigo-500" />,
+                  })) || []),
+                ]}
+              />
             </div>
 
             {/* Quick Tag Selector */}
-            <div className="relative">
-              <select
+            <div className="w-32 sm:w-36">
+              <CustomSelect
+                size="sm"
                 value={selectedTagId}
-                onChange={(e) => setSelectedTagId(e.target.value)}
-                className="appearance-none bg-stone-100 dark:bg-stone-800/80 border border-stone-200/60 dark:border-stone-700/60 rounded-lg pl-2 pr-6 py-1 text-xs text-stone-700 dark:text-stone-300 font-medium focus:outline-none focus:ring-1 focus:ring-rose-500 cursor-pointer"
-              >
-                <option value="">+ 关联标签</option>
-                {tagsData?.tags.map((tg) => (
-                  <option key={tg.id} value={tg.id}>
-                    #{tg.name}
-                  </option>
-                ))}
-              </select>
-              <TagIcon className="pointer-events-none absolute right-1.5 top-1.5 h-3.5 w-3.5 text-stone-400" />
+                onChange={setSelectedTagId}
+                placeholder="+ 关联标签"
+                options={[
+                  { value: '', label: '无标签' },
+                  ...(tagsData?.tags.map((tg) => ({
+                    value: tg.id,
+                    label: `#${tg.name}`,
+                    icon: <TagIcon className="h-3 w-3 text-amber-500" />,
+                  })) || []),
+                ]}
+              />
             </div>
           </div>
 

@@ -5,6 +5,7 @@ import { ItemCard } from '../components/ItemCard';
 import { ItemDetailModal } from '../components/ItemDetailModal';
 import { DateInput } from '../components/ui/DateInput';
 import { Button } from '../components/ui/Button';
+import { CustomSelect } from '../components/ui/CustomSelect';
 import {
   Search as SearchIcon,
   Filter,
@@ -185,18 +186,20 @@ export function SearchPage() {
               <label className="text-stone-500 dark:text-stone-400 font-semibold block mb-1">
                 素材类型
               </label>
-              <select
+              <CustomSelect
+                size="sm"
                 value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="w-full rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800 px-3 py-2 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
-              >
-                <option value="">全部类型</option>
-                <option value="url">网页 (URL)</option>
-                <option value="note">备忘 (Note)</option>
-                <option value="image">图片 (Image)</option>
-                <option value="document">文档 (Document)</option>
-                <option value="video">视频 (Video)</option>
-              </select>
+                onChange={setType}
+                placeholder="全部类型"
+                options={[
+                  { value: '', label: '全部类型' },
+                  { value: 'url', label: '🌐 网页 (URL)' },
+                  { value: 'note', label: '📝 备忘 (Note)' },
+                  { value: 'image', label: '🖼 图片 (Image)' },
+                  { value: 'document', label: '📄 文档 (Document)' },
+                  { value: 'video', label: '🎬 视频 (Video)' },
+                ]}
+              />
             </div>
 
             {/* Topic */}
@@ -204,18 +207,19 @@ export function SearchPage() {
               <label className="text-stone-500 dark:text-stone-400 font-semibold block mb-1">
                 所属选题
               </label>
-              <select
+              <CustomSelect
+                size="sm"
                 value={topicId}
-                onChange={(e) => setTopicId(e.target.value)}
-                className="w-full rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800 px-3 py-2 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
-              >
-                <option value="">全部选题</option>
-                {topicsData?.topics.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.title}
-                  </option>
-                ))}
-              </select>
+                onChange={setTopicId}
+                placeholder="全部选题"
+                options={[
+                  { value: '', label: '全部选题' },
+                  ...(topicsData?.topics.map((t) => ({
+                    value: t.id,
+                    label: t.title,
+                  })) || []),
+                ]}
+              />
             </div>
 
             {/* Tag */}
@@ -223,18 +227,19 @@ export function SearchPage() {
               <label className="text-stone-500 dark:text-stone-400 font-semibold block mb-1">
                 标签过滤
               </label>
-              <select
+              <CustomSelect
+                size="sm"
                 value={tagId}
-                onChange={(e) => setTagId(e.target.value)}
-                className="w-full rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800 px-3 py-2 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
-              >
-                <option value="">全部标签</option>
-                {tagsData?.tags.map((tg) => (
-                  <option key={tg.id} value={tg.id}>
-                    #{tg.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setTagId}
+                placeholder="全部标签"
+                options={[
+                  { value: '', label: '全部标签' },
+                  ...(tagsData?.tags.map((tg) => ({
+                    value: tg.id,
+                    label: `#${tg.name}`,
+                  })) || []),
+                ]}
+              />
             </div>
 
             {/* Status */}
@@ -242,16 +247,18 @@ export function SearchPage() {
               <label className="text-stone-500 dark:text-stone-400 font-semibold block mb-1">
                 整理状态
               </label>
-              <select
+              <CustomSelect
+                size="sm"
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800 px-3 py-2 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
-              >
-                <option value="">全部状态</option>
-                <option value="inbox">收件箱 (Inbox)</option>
-                <option value="organized">已整理 (Organized)</option>
-                <option value="archived">已归档 (Archived)</option>
-              </select>
+                onChange={setStatus}
+                placeholder="全部状态"
+                options={[
+                  { value: '', label: '全部状态' },
+                  { value: 'inbox', label: '收件箱 (Inbox)' },
+                  { value: 'organized', label: '已整理 (Organized)' },
+                  { value: 'archived', label: '已归档 (Archived)' },
+                ]}
+              />
             </div>
 
             {/* Domain */}
