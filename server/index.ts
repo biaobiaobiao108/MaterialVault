@@ -2,6 +2,16 @@ import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { initDatabase } from './db';
 import { error, json } from './utils';
+import { isAuthRequired, validateToken } from './services/auth';
+import {
+  handleAuthStatus,
+  handleAuthSetup,
+  handleAuthLogin,
+  handleAuthLogout,
+  handleChangePassword,
+  handleGetApiToken,
+  handleResetApiToken,
+} from './routes/auth';
 import {
   handleGetItems,
   handleGetItem,
@@ -48,7 +58,7 @@ Bun.serve({
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Token',
         },
       });
     }
@@ -58,6 +68,26 @@ Bun.serve({
       // 1. REST API Routes (/api/*)
       // -------------------------------------------------------------
       if (path.startsWith('/api')) {
+        // Public Auth endpoints
+        if (path === '/api/auth/status' && method === 'GET') return handleAuthStatus(req);
+        if (path === '/api/auth/setup' && method === 'POST') return await handleAuthSetup(req);
+        if (path === '/api/auth/login' && method === 'POST') return await handleAuthLogin(req);
+
+        // Security Guard: Check token for all protected API routes
+        const authHeader = req.headers.get('authorization') ||
+                           req.headers.get('x-api-token') ||
+                           url.searchParams.get('token');
+
+        if (isAuthRequired() && !validateToken(authHeader)) {
+          return error('未授权：请先登录', 401);
+        }
+
+        // Authenticated Auth sub-routes
+        if (path === '/api/auth/logout' && method === 'POST') return handleAuthLogout(req);
+        if (path === '/api/auth/change-password' && method === 'POST') return await handleChangePassword(req);
+        if (path === '/api/auth/api-token' && method === 'GET') return handleGetApiToken();
+        if (path === '/api/auth/reset-api-token' && method === 'POST') return handleResetApiToken();
+
         // Stats & Backup
         if (path === '/api/stats' && method === 'GET') return handleGetStats();
         if (path === '/api/backup' && method === 'GET') return handleBackup();

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import { api, removeAuthToken } from '../lib/api';
 import { useTheme, ThemePreference } from '../lib/theme';
 import { formatBytes } from '../lib/utils';
 import {
@@ -20,6 +20,11 @@ import {
   Pencil,
   Trash2,
   X,
+  Lock,
+  KeyRound,
+  RefreshCw,
+  Copy,
+  LogOut,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -36,6 +41,9 @@ export function SettingsPage() {
   const [editTagNameValue, setEditTagNameValue] = useState('');
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
 
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+
   const { data: stats } = useQuery({
     queryKey: ['vault-stats'],
     queryFn: api.getStats,
@@ -44,6 +52,30 @@ export function SettingsPage() {
   const { data: tagsData } = useQuery({
     queryKey: ['tags'],
     queryFn: api.getTags,
+  });
+
+  const { data: apiTokenData } = useQuery({
+    queryKey: ['api-token'],
+    queryFn: api.getApiToken,
+  });
+
+  const resetTokenMutation = useMutation({
+    mutationFn: api.resetApiToken,
+    onSuccess: (data) => {
+      toast.success(data.message || 'API Token 已重置');
+      queryClient.invalidateQueries({ queryKey: ['api-token'] });
+    },
+    onError: (err: any) => toast.error(err.message || '重置 Token 失败'),
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: (data: { oldPassword?: string; newPassword: string }) => api.changePassword(data),
+    onSuccess: (data) => {
+      toast.success(data.message || '密码修改成功');
+      setOldPassword('');
+      setNewPassword('');
+    },
+    onError: (err: any) => toast.error(err.message || '修改密码失败'),
   });
 
   // Create Tag Mutation
@@ -387,6 +419,125 @@ export function SettingsPage() {
           </div>
         </section>
       )}
+
+      {/* Security & Authentication Section */}
+      <section className="space-y-3 pt-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+            <Lock className="h-4 w-4 text-rose-600" />
+            <span>安全与访问鉴权</span>
+          </h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={async () => {
+              try {
+                await api.logout();
+              } catch (_) {}
+              removeAuthToken();
+              queryClient.invalidateQueries({ queryKey: ['auth-status'] });
+              toast.info('已安全退出登录');
+            }}
+            className="text-stone-500 hover:text-rose-600 dark:hover:text-rose-400 gap-1 text-xs"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span>退出登录</span>
+          </Button>
+        </div>
+
+        <div className="p-4 sm:p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-2xs space-y-5">
+          {/* API Token for Extension */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
+                <KeyRound className="w-3.5 h-3.5 text-rose-500" />
+                <span>浏览器插件 / 客户端 API Token</span>
+              </label>
+              <Button
+                variant="ghost"
+                size="sm"
+                loading={resetTokenMutation.isPending}
+                onClick={() => resetTokenMutation.mutate()}
+                className="text-[11px] text-stone-400 hover:text-rose-600 h-6 px-2"
+                title="重新生成 API Token (原有 Token 将立即失效)"
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                <span>重置 Token</span>
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={apiTokenData?.apiToken || '加载中...'}
+                className="flex-1 font-mono text-xs rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/80 px-3 py-2 text-stone-700 dark:text-stone-300 select-all"
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  if (apiTokenData?.apiToken) {
+                    navigator.clipboard.writeText(apiTokenData.apiToken);
+                    toast.success('API Token 已复制到剪贴板');
+                  }
+                }}
+                className="gap-1 text-xs shrink-0"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                <span>复制 Token</span>
+              </Button>
+            </div>
+            <p className="text-[11px] text-stone-400">
+              在 Chrome/Edge 浏览器扩展设置中填入此 Token，无需在扩展内重复输入密码即可一键保存素材。
+            </p>
+          </div>
+
+          {/* Change Password Form */}
+          <div className="pt-4 border-t border-stone-100 dark:border-stone-800/80 space-y-3">
+            <h3 className="text-xs font-semibold text-stone-700 dark:text-stone-300">修改访问密码</h3>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newPassword.trim()) {
+                  toast.error('请输入新密码');
+                  return;
+                }
+                if (newPassword.length < 4) {
+                  toast.error('新密码长度不能少于 4 位');
+                  return;
+                }
+                changePasswordMutation.mutate({ oldPassword, newPassword });
+              }}
+              className="grid grid-cols-1 sm:grid-cols-3 gap-2.5"
+            >
+              <input
+                type="password"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                placeholder="原密码 (初次设置可留空)..."
+                className="rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800 px-3 py-2 text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
+              />
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="输入新密码 (至少4位)..."
+                className="rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800 px-3 py-2 text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
+              />
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                loading={changePasswordMutation.isPending}
+                disabled={!newPassword.trim()}
+                className="text-xs"
+              >
+                确认修改密码
+              </Button>
+            </form>
+          </div>
+        </div>
+      </section>
 
       {/* Architecture & Reliability principles */}
       <section className="p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-900/60 text-xs space-y-2 text-stone-600 dark:text-stone-400 leading-relaxed">

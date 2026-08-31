@@ -75,6 +75,19 @@ export function initDatabase() {
       created_at INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      token TEXT NOT NULL UNIQUE,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    );
+
     -- Indices for high performance queries
     CREATE INDEX IF NOT EXISTS idx_items_org_status ON items(organization_status);
     CREATE INDEX IF NOT EXISTS idx_items_proc_status ON items(processing_status);
@@ -83,6 +96,7 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_assets_item_id ON assets(item_id);
     CREATE INDEX IF NOT EXISTS idx_assets_sha256 ON assets(sha256);
     CREATE INDEX IF NOT EXISTS idx_logs_item_id ON processing_logs(item_id);
+    CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
 
     -- FTS5 Full Text Search Table
     CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(

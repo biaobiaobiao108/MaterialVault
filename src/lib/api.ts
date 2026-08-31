@@ -1,14 +1,37 @@
 import { Item, Tag, VaultStats, SearchParams } from './types';
 
 const API_BASE = '/api';
+const TOKEN_KEY = 'mv_auth_token';
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setAuthToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function removeAuthToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+export interface AuthStatus {
+  requireAuth: boolean;
+  isSetup: boolean;
+  authenticated: boolean;
+}
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options?.headers as Record<string, string>),
+  };
+
   const res = await fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+    headers,
   });
 
   if (!res.ok) {
@@ -17,6 +40,12 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
       const errData = await res.json();
       if (errData.error) errorMsg = errData.error;
     } catch (_) {}
+
+    if (res.status === 401 && !url.includes('/auth/login') && !url.includes('/auth/status')) {
+      removeAuthToken();
+      window.dispatchEvent(new CustomEvent('mv-auth-required'));
+    }
+
     throw new Error(errorMsg);
   }
 
@@ -24,6 +53,36 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // Auth
+  getAuthStatus: () => fetchJson<AuthStatus>(`${API_BASE}/auth/status`),
+  setupAuth: (password: string) =>
+    fetchJson<{ message: string; token: string; expiresAt: number; apiToken: string }>(
+      `${API_BASE}/auth/setup`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+      }
+    ),
+  login: (password: string) =>
+    fetchJson<{ token: string; expiresAt: number }>(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
+  logout: () =>
+    fetchJson<{ success: boolean }>(`${API_BASE}/auth/logout`, {
+      method: 'POST',
+    }),
+  changePassword: (data: { oldPassword?: string; newPassword: string }) =>
+    fetchJson<{ message: string }>(`${API_BASE}/auth/change-password`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getApiToken: () => fetchJson<{ apiToken: string }>(`${API_BASE}/auth/api-token`),
+  resetApiToken: () =>
+    fetchJson<{ apiToken: string; message: string }>(`${API_BASE}/auth/reset-api-token`, {
+      method: 'POST',
+    }),
+
   // Stats & Backup
   getStats: () => fetchJson<VaultStats>(`${API_BASE}/stats`),
   backupUrl: `${API_BASE}/backup`,
@@ -129,8 +188,12 @@ export const api = {
 
   // Uploads
   uploadFiles: async (formData: FormData): Promise<{ items: Item[] }> => {
+    const token = getAuthToken();
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
     const res = await fetch(`${API_BASE}/uploads`, {
       method: 'POST',
+      headers,
       body: formData,
     });
 
@@ -140,6 +203,12 @@ export const api = {
         const err = await res.json();
         if (err.error) errorMsg = err.error;
       } catch (_) {}
+
+      if (res.status === 401) {
+        removeAuthToken();
+        window.dispatchEvent(new CustomEvent('mv-auth-required'));
+      }
+
       throw new Error(errorMsg);
     }
 
