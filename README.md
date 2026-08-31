@@ -104,6 +104,9 @@ bun run build
 ### 4. 运行生产服务
 
 ```bash
+# 可选：通过环境变量设置访问密码
+AUTH_PASSWORD=your_secure_password bun start
+# 或直接启动（首次进入网页端进行密码初始化）：
 bun start
 ```
 
@@ -115,16 +118,29 @@ bun start
 docker compose up -d
 ```
 
-#### 方式 B：直接运行容器
+#### 方式 B：直接运行容器 (带密码保护)
 
 ```bash
 docker run -d \
   --name material-vault \
   --restart unless-stopped \
   -p 3000:3000 \
+  -e AUTH_PASSWORD=your_secure_password \
   -v $(pwd)/data:/app/data \
   ghcr.io/biaobiaobiao108/materialvault:latest
 ```
+
+---
+
+## ⚙️ 环境变量配置
+
+Material Vault 支持通过环境变量进行快速预设，适合容器自动化编排与服务器部署：
+
+| 环境变量 | 默认值 | 说明 |
+| :--- | :--- | :--- |
+| `AUTH_PASSWORD` | *(空)* | **访问保护主密码**。若设置该变量，系统将自动启用全站登录保护；若留空，首次访问可在网页端设置初始密码。 |
+| `PORT` | `3000` | 后端服务监听端口。 |
+| `NODE_ENV` | `development` | 运行环境标识 (`production` / `development`)。 |
 
 ---
 
