@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { ItemCard } from '../components/ItemCard';
 import { ItemDetailModal } from '../components/ItemDetailModal';
+import { MasonryGrid } from '../components/ui/MasonryGrid';
 import { DateInput } from '../components/ui/DateInput';
 import { Button } from '../components/ui/Button';
 import { CustomSelect } from '../components/ui/CustomSelect';
@@ -382,15 +383,16 @@ export function SearchPage() {
           </p>
         </div>
       ) : (
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
-          {items.map((item) => (
+        <MasonryGrid
+          items={items}
+          keyExtractor={(item) => item.id}
+          renderItem={(item) => (
             <ItemCard
-              key={item.id}
               item={item}
               onClick={(it) => setActiveItemId(it.id)}
             />
-          ))}
-        </section>
+          )}
+        />
       )}
 
       {/* Item Detail Modal */}

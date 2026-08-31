@@ -5,6 +5,7 @@ import { Item } from '../lib/types';
 import { ItemCard } from '../components/ItemCard';
 import { BatchActionBar } from '../components/BatchActionBar';
 import { ItemDetailModal } from '../components/ItemDetailModal';
+import { MasonryGrid } from '../components/ui/MasonryGrid';
 import { Layers, RefreshCw, Tag as TagIcon, X } from 'lucide-react';
 import { useToast } from '../components/ui/Toast';
 
@@ -267,10 +268,11 @@ export function ItemsPage() {
           </p>
         </div>
       ) : (
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
-          {items.map((item) => (
+        <MasonryGrid
+          items={items}
+          keyExtractor={(item) => item.id}
+          renderItem={(item) => (
             <ItemCard
-              key={item.id}
               item={item}
               isSelected={selectedIds.includes(item.id)}
               onSelect={handleSelect}
@@ -284,8 +286,8 @@ export function ItemsPage() {
               onArchive={(id) => archiveMutation.mutate(id)}
               onDelete={(id) => deleteMutation.mutate(id)}
             />
-          ))}
-        </section>
+          )}
+        />
       )}
 
       {/* Batch Action Bar */}
