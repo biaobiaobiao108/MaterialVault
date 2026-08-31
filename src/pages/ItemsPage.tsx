@@ -255,20 +255,20 @@ export function ItemsPage() {
       </div>
 
       {/* Cards list */}
-      <section className="space-y-3">
-        {isLoading ? (
-          <div className="py-16 flex flex-col items-center justify-center gap-3 text-stone-400">
-            <RefreshCw className="h-6 w-6 animate-spin text-rose-500" />
-            <span className="text-xs">加载素材中...</span>
-          </div>
-        ) : items.length === 0 ? (
-          <div className="py-16 flex flex-col items-center justify-center text-center p-8 rounded-3xl border border-stone-200 dark:border-stone-800 bg-white/50 dark:bg-stone-900/50">
-            <p className="text-sm font-semibold text-stone-600 dark:text-stone-400">
-              当前视图下无匹配素材
-            </p>
-          </div>
-        ) : (
-          items.map((item) => (
+      {isLoading ? (
+        <div className="py-16 flex flex-col items-center justify-center gap-3 text-stone-400">
+          <RefreshCw className="h-6 w-6 animate-spin text-rose-500" />
+          <span className="text-xs">加载素材中...</span>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="py-16 flex flex-col items-center justify-center text-center p-8 rounded-3xl border border-stone-200 dark:border-stone-800 bg-white/50 dark:bg-stone-900/50">
+          <p className="text-sm font-semibold text-stone-600 dark:text-stone-400">
+            当前视图下无匹配素材
+          </p>
+        </div>
+      ) : (
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+          {items.map((item) => (
             <ItemCard
               key={item.id}
               item={item}
@@ -284,9 +284,9 @@ export function ItemsPage() {
               onArchive={(id) => archiveMutation.mutate(id)}
               onDelete={(id) => deleteMutation.mutate(id)}
             />
-          ))
-        )}
-      </section>
+          ))}
+        </section>
+      )}
 
       {/* Batch Action Bar */}
       <BatchActionBar

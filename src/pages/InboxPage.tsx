@@ -247,26 +247,26 @@ export function InboxPage() {
       </div>
 
       {/* Item Cards List */}
-      <section className="space-y-3">
-        {isLoading ? (
-          <div className="py-16 flex flex-col items-center justify-center gap-3 text-stone-400">
-            <RefreshCw className="h-6 w-6 animate-spin text-rose-500" />
-            <span className="text-xs">加载待整理素材...</span>
+      {isLoading ? (
+        <div className="py-16 flex flex-col items-center justify-center gap-3 text-stone-400">
+          <RefreshCw className="h-6 w-6 animate-spin text-rose-500" />
+          <span className="text-xs">加载待整理素材...</span>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="py-12 flex flex-col items-center justify-center text-center p-8 rounded-3xl border border-dashed border-stone-200 dark:border-stone-800 bg-white/50 dark:bg-stone-900/50">
+          <div className="h-16 w-16 rounded-2xl overflow-hidden shadow-card border border-stone-200/80 dark:border-stone-700 mb-3 bg-amber-500/10 dark:bg-stone-800 p-1 animate-in zoom-in-95 duration-200">
+            <img src="/logo.png" alt="Empty Inbox" className="h-full w-full object-contain" />
           </div>
-        ) : items.length === 0 ? (
-          <div className="py-12 flex flex-col items-center justify-center text-center p-8 rounded-3xl border border-dashed border-stone-200 dark:border-stone-800 bg-white/50 dark:bg-stone-900/50">
-            <div className="h-16 w-16 rounded-2xl overflow-hidden shadow-card border border-stone-200/80 dark:border-stone-700 mb-3 bg-amber-500/10 dark:bg-stone-800 p-1 animate-in zoom-in-95 duration-200">
-              <img src="/logo.png" alt="Empty Inbox" className="h-full w-full object-contain" />
-            </div>
-            <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
-              Inbox 已清空！
-            </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400 max-w-sm mt-1 leading-relaxed">
-              没有堆积的待整理素材。粘贴链接或记录一条灵感备忘开始收集。
-            </p>
-          </div>
-        ) : (
-          items.map((item) => (
+          <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
+            Inbox 已清空！
+          </h3>
+          <p className="text-xs text-stone-500 dark:text-stone-400 max-w-sm mt-1 leading-relaxed">
+            没有堆积的待整理素材。粘贴链接或记录一条灵感备忘开始收集。
+          </p>
+        </div>
+      ) : (
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+          {items.map((item) => (
             <ItemCard
               key={item.id}
               item={item}
@@ -282,9 +282,9 @@ export function InboxPage() {
               onArchive={(id) => archiveMutation.mutate(id)}
               onDelete={(id) => deleteMutation.mutate(id)}
             />
-          ))
-        )}
-      </section>
+          ))}
+        </section>
+      )}
 
       {/* Floating Batch Action Bar */}
       <BatchActionBar

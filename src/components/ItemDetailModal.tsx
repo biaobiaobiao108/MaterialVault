@@ -16,6 +16,8 @@ import {
   X,
   Copy,
   Play,
+  Eye,
+  Code,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -24,6 +26,7 @@ import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { CustomSelect } from './ui/CustomSelect';
 import { ConfirmDialog } from './ui/ConfirmDialog';
+import { MarkdownRenderer } from './ui/MarkdownRenderer';
 import { useToast } from './ui/Toast';
 import { formatDate, formatBytes } from '../lib/utils';
 
@@ -35,6 +38,7 @@ export interface ItemDetailModalProps {
 
 export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProps) {
   const [activeTab, setActiveTab] = useState<'content' | 'markdown' | 'assets' | 'logs'>('content');
+  const [showRawMarkdown, setShowRawMarkdown] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState('');
   const [editingNote, setEditingNote] = useState(false);
@@ -497,8 +501,8 @@ ${item.description ? `>\n> **创作备注**：\n> ${item.description.replace(/\n
                   )}
 
                   {item.contentText ? (
-                    <div className="p-4 rounded-xl border border-stone-200/70 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950 max-h-80 overflow-y-auto font-mono text-xs leading-relaxed text-stone-800 dark:text-stone-200 whitespace-pre-wrap select-text">
-                      {item.contentText}
+                    <div className="p-4 rounded-xl border border-stone-200/70 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950 max-h-96 overflow-y-auto select-text">
+                      <MarkdownRenderer content={item.contentText} />
                     </div>
                   ) : (
                     <div className="p-6 text-center text-xs text-stone-400">
@@ -512,21 +516,40 @@ ${item.description ? `>\n> **创作备注**：\n> ${item.description.replace(/\n
 
               {/* Tab 2: Markdown Asset */}
               {activeTab === 'markdown' && markdownAsset && (
-                <div className="rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950 p-4">
-                  <div className="flex justify-between items-center pb-2 mb-2 border-b border-stone-200 dark:border-stone-800 text-xs">
-                    <span className="font-mono text-stone-400">{markdownAsset.fileName}</span>
+                <div className="rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950 p-4 space-y-3">
+                  <div className="flex justify-between items-center pb-2 border-b border-stone-200 dark:border-stone-800 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-stone-500 font-semibold">{markdownAsset.fileName}</span>
+                      {/* Preview / Raw Source Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setShowRawMarkdown((prev) => !prev)}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-200/80 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:text-rose-600 dark:hover:text-rose-400 font-medium transition-colors"
+                      >
+                        {showRawMarkdown ? <Eye className="h-3 w-3" /> : <Code className="h-3 w-3" />}
+                        <span>{showRawMarkdown ? '排版预览' : '查看源码'}</span>
+                      </button>
+                    </div>
+
                     <a
                       href={`/api/assets/${markdownAsset.id}`}
                       download={markdownAsset.fileName}
-                      className="inline-flex items-center gap-1 text-rose-600 hover:underline"
+                      className="inline-flex items-center gap-1 text-rose-600 hover:underline font-medium"
                     >
                       <Download className="h-3.5 w-3.5" />
                       <span>下载 Markdown</span>
                     </a>
                   </div>
-                  <pre className="text-xs leading-relaxed font-mono text-stone-800 dark:text-stone-200 whitespace-pre-wrap max-h-96 overflow-y-auto">
-                    {item.contentText}
-                  </pre>
+
+                  {showRawMarkdown ? (
+                    <pre className="text-xs leading-relaxed font-mono text-stone-800 dark:text-stone-200 whitespace-pre-wrap max-h-96 overflow-y-auto bg-stone-100 dark:bg-stone-900 p-3 rounded-xl border border-stone-200/60 dark:border-stone-800">
+                      {item.contentText}
+                    </pre>
+                  ) : (
+                    <div className="max-h-96 overflow-y-auto p-1">
+                      <MarkdownRenderer content={item.contentText || ''} />
+                    </div>
+                  )}
                 </div>
               )}
 

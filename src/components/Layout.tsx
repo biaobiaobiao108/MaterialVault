@@ -229,7 +229,7 @@ export function Layout() {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto min-h-dvh flex flex-col pb-20 md:pb-8">
-        <div className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-8 sm:py-8 flex-1">
+        <div className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-8 sm:py-8 flex-1">
           <Outlet />
         </div>
       </main>
