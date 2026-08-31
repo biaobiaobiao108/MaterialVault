@@ -1,0 +1,15 @@
+services:
+  material-vault:
+    image: ghcr.io/biaobiaobiao108/materialvault:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: material-vault
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PORT=3000
+      - NODE_ENV=production

@@ -104,6 +104,25 @@ bun run build
 bun start
 ```
 
+### 5. 🐳 Docker 容器化部署
+
+#### 方式 A：Docker Compose 一键启动 (推荐)
+
+```bash
+docker compose up -d
+```
+
+#### 方式 B：直接运行容器
+
+```bash
+docker run -d \
+  --name material-vault \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  -v $(pwd)/data:/app/data \
+  ghcr.io/biaobiaobiao108/materialvault:latest
+```
+
 ---
 
 ## 🧩 官方浏览器插件 (Chrome / Edge 扩展)

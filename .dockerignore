@@ -1,0 +1,11 @@
+node_modules
+data
+dist
+.git
+.github
+.vscode
+.idea
+*.log
+.env*
+bin
+scratch
