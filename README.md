@@ -6,8 +6,8 @@
 
 **专为视频创作者打造的：素材收件箱 + 网页证据归档库 + 极速标签检索系统**
 
-[![Built with Bun](https://img.shields.io/badge/Bun-1.4.0+-black?logo=bun)](https://bun.sh)
-[![React 18](https://img.shields.io/badge/React-18-blue?logo=react)](https://react.dev)
+[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://go.dev)
+[![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?logo=tailwind-css)](https://tailwindcss.com)
 [![SQLite FTS5](https://img.shields.io/badge/SQLite-FTS5-003B57?logo=sqlite)](https://sqlite.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-rose.svg)](./LICENSE)
@@ -27,9 +27,9 @@
 ### 核心特性
 
 - ⚡ **零摩擦极速收集 (Capture Friction 最小化)**：
-  - 复制链接直接 `Ctrl + V`（支持页面任意处全局粘贴捕获），无需等待即刻返回；
+  - 复制链接直接 `Ctrl + V`（支持页面任意处全局粘贴捕获），无需等待即刻返回 202 保存成功；
   - 同一输入框支持自由记录灵感备忘（Note）、拖入本地文件或直接粘贴截图。
-- 🏷️ **智能 `#标签` 自动补全与双向关联**：
+- 🏷️ **智能 `#标签` 自动提取与双向关联**：
   - 在输入框键入 `#` 即时弹出已有标签联想浮层，按 `Tab` / `Enter` 快捷上屏；
   - 保存时自动在数据库中创建不存在的标签并与素材双向关联；
   - 设置页内置「标签管理中心」，支持查看各标签关联素材量、快速重命名与清理。
@@ -39,13 +39,14 @@
 - 📋 **一键复制 AI 创作证据引用包**：
   - 证据详情弹窗支持一键将素材标题、来源、标签、备注及正文打包为标准 Markdown 引用块，无缝喂给写稿大模型。
 - 🔍 **毫秒级防抖全文检索与多维过滤**：
-  - 搜索框 250ms 防抖即时响应，零额外点击；
+  - 基于 SQLite FTS5 原生虚拟表与触发器，搜索框 250ms 防抖即时响应；
   - 动态展示当前生效的过滤条件胶囊条，支持一键移除或重置。
-- ⚡ **原生 Bun 极速性能与 0 外部依赖**：
-  - 采用 `Bun.CryptoHasher` 极速 SHA-256 散列，配合 `Bun.file` / `Bun.write` 零拷贝 I/O；
-  - 支持全局 `Ctrl + K` / `/` 快速激活全文检索与全库一键 JSON 备份导出。
+- 📦 **纯原生 Go 高性能内核与单二进制分发**：
+  - 后端采用纯 Go 原生实现（零 CGO 依赖），常驻内存低至 **10MB ~ 25MB**；
+  - 采用 SHA-256 原生内容散列进行资产物理去重；
+  - 一键编译输出独立单可执行文件（`.exe` / Linux / Mac），用户无需安装 Node/Bun 环境，双击直接运行。
 - 🛡️ **网页证据自动归档 (Archive Resilience)**：
-  - 后台自动提取网页 Title、Meta 与正文 Clean Markdown；
+  - 后台异步 Goroutine 流水线自动提取网页 Title、Meta 与 Clean Markdown 正文；
   - 遇到防爬/登录墙导致抓取失败时，**素材本体与笔记绝对不丢失**，提供显式的重新抓取入口。
 - 🎨 **温润编辑部 UI 体系**：
   - Stone 纸张灰阶搭配 Rose 主强调色，全自动监听并实时自适应系统深浅色昼夜模式。
@@ -54,50 +55,55 @@
 
 ## 🛠️ 技术架构
 
-全流程基于 **纯原生 Bun 单体全栈工程** 构建：
+本项目采用 **Go 原生后端 + React 18 SPA 前端** 现代架构：
 
-| 领域 | 技术栈 |
-| --- | --- |
-| **运行时与服务端** | `Bun >= 1.4.0` (原生 `Bun.serve`) |
-| **数据库** | `bun:sqlite` + `Drizzle ORM` (`./data/vault.db`) |
-| **全文检索** | `SQLite FTS5` (unicode61 + 实时触发器同步) |
-| **前端框架** | `React 18` + `TypeScript` + `Vite` |
-| **状态管理** | `@tanstack/react-query` |
-| **样式与图标** | `Tailwind CSS` + `Lucide Icons` |
+| 领域 | 技术选型 | 说明 |
+| :--- | :--- | :--- |
+| **运行时与服务端** | `Go >= 1.22` (原生 `net/http`) | 纯原生高性能 HTTP 路由、异步 Goroutine 流水线与单二进制分发 |
+| **数据库** | `modernc.org/sqlite` | 纯 Go 编写、无 CGO 依赖的嵌入式 SQLite，位于 `./data/vault.db` |
+| **全文检索** | `SQLite FTS5` (unicode61) | 毫秒级标题、备注、URL 及正文全文检索，三向触发器自动同步 |
+| **正文提取与转换** | `go-readability` + `html-to-markdown` | 网页 Clean Markdown 提取与证据归档 |
+| **前端框架** | `React 18` + `TypeScript` + `Vite` | 极速现代前端单页应用，位于 `./src` |
+| **数据请求** | `@tanstack/react-query` | 声明式数据获取与实时缓存管理 |
+| **样式与图标** | `Tailwind CSS` + `Lucide Icons` | 遵循 Stone + Rose 温润编辑部设计规范 |
 
 ---
 
 ## 🚀 快速开始
 
-### 1. 安装依赖
+### 1. 运行开发模式
 
-确保本地已安装 [Bun](https://bun.sh)：
-
-```bash
-bun install
-```
-
-### 2. 启动应用
-
-运行完整应用（包含原生 Bun 后端 API 与前端静态托管，端口 `3000`）：
+运行完整应用（Go 后端启动在 `3000` 端口，自动托管 API 与前端静态资源）：
 
 ```bash
-bun run start
+go run ./cmd/server
+# 或使用 npm / bun 别名:
+bun run dev
 ```
 
 浏览器访问：`http://localhost:3000`
 
-### 3. 前端独立开发模式（支持热更新）
+### 2. 前端独立热更新开发
 
 ```bash
 # 启动 Vite 前端热更服务 (端口 5173，自动代理 /api 至 3000)
 bun run dev:ui
 ```
 
-### 4. 生产打包
+### 3. 构建全量生产版本
+
+执行一键构建（前端 Vite 打包 + Go 后端单一可执行程序输出至 `./bin/server.exe`）：
 
 ```bash
 bun run build
+```
+
+### 4. 独立运行
+
+生产环境下直接运行编译生成的单一二进制文件，**机器无需安装 Node/Bun 环境**：
+
+```bash
+./bin/server.exe
 ```
 
 ---
@@ -120,15 +126,19 @@ bun run build
 
 ```text
 MaterialVault/
+├── cmd/
+│   └── server/              # Go 服务端主入口 (main.go)
+├── internal/                # Go 内部业务与底层核心包
+│   ├── config/              # 运行配置与路径管理
+│   ├── db/                  # 数据层 (db.go, models.go, seed.go)
+│   ├── handlers/            # REST API 路由处理器 (items, tags, search, assets, uploads, stats)
+│   ├── services/            # 核心业务 (capture.go, storage.go, search.go)
+│   └── utils/               # 响应封装、文本与 URL 清洗
 ├── data/                    # 本地数据目录 (已 gitignore)
 │   ├── vault.db             # SQLite 数据库与 FTS5 虚拟表
 │   └── assets/              # SHA-256 二进制文件去重存储池
+├── extension/               # 官方浏览器扩展 (Manifest V3，免编译开箱即用)
 ├── public/                  # 静态资源 (小熊猫 mascot logo.png, favicon.png)
-├── server/                  # 纯原生 Bun 后端代码 (零外部 Web 框架依赖)
-│   ├── index.ts             # 服务端入口 (Bun.serve 原生 API 路由与静态托管)
-│   ├── db/                  # 数据层 (schema.ts, db.ts, seed.ts)
-│   ├── routes/              # 原生路由分发 (items, tags, search, assets, uploads, stats)
-│   └── services/            # 核心业务 (capture.ts, storage.ts, search.ts)
 ├── src/                     # React 前端代码
 │   ├── components/          # 业务组件 (QuickCapture, ItemCard, Modals, BatchBar)
 │   │   └── ui/              # 原子 UI 组件 (Button, Badge, Modal, ConfirmDialog, CustomSelect, DateInput)
@@ -136,6 +146,8 @@ MaterialVault/
 │   ├── lib/                 # 工具库 (api.ts, theme.tsx, types.ts, utils.ts)
 │   ├── App.tsx              # 路由配置
 │   └── index.css            # 基础样式与 Light/Dark 设计令牌
+├── go.mod
+├── go.sum
 ├── package.json
 └── tsconfig.json
 ```
