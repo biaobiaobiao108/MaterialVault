@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run server/index.ts",
+    "dev": "go run ./cmd/server",
     "dev:ui": "vite",
     "build:ui": "vite build",
-    "build": "vite build",
-    "start": "bun run server/index.ts",
-    "db:seed": "bun run server/db/seed.ts"
+    "build:server": "go build -o ./bin/server.exe ./cmd/server",
+    "build": "vite build && go build -o ./bin/server.exe ./cmd/server",
+    "start": "./bin/server.exe",
+    "db:seed": "go run ./cmd/server --seed"
   },
   "dependencies": {
     "@mozilla/readability": "^0.5.0",

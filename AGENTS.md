@@ -23,13 +23,14 @@
 
 ## 2. 技术栈与运行时规范
 
-本项目为全栈单体工程，**全流程强依赖 Bun**：
+本项目为全栈单体工程，**后端已全量转向 Go 语言原生实现**，前端为现代 React SPA：
 
 | 层级 | 技术选型 | 说明 |
 | --- | --- | --- |
-| **运行时与服务端** | `Bun >= 1.4.0` (原生 `Bun.serve`) | 包管理、纯原生 HTTP 服务与静态文件托管 |
-| **数据库** | `bun:sqlite` + `Drizzle ORM` | 嵌入式 SQLite 数据库，位于 `./data/vault.db` |
+| **运行时与服务端** | `Go >= 1.22` (原生 `net/http`) | 纯原生高性能 HTTP 路由、SPA 静态托管与单二进制分发 |
+| **数据库** | `modernc.org/sqlite` | 纯 Go 无 CGO 依赖的嵌入式 SQLite 数据库，位于 `./data/vault.db` |
 | **全文检索** | `SQLite FTS5` (unicode61 / subquery) | 毫秒级中文标题、备注、URL 及正文全文检索 |
+| **正文与抓取** | `go-shiori/go-readability` + `html-to-markdown` | 异步 Goroutine 流水线提取 Clean Markdown 与元数据 |
 | **前端框架** | `React 18` + `TypeScript` + `Vite` | 单页应用，位于 `./src` |
 | **数据请求** | `@tanstack/react-query` | 声明式数据获取与实时缓存管理 |
 | **样式与组件** | `Tailwind CSS` + `Lucide Icons` | 遵循 Stone + Rose 温润编辑部设计规范 |
@@ -40,16 +41,19 @@
 
 ```text
 MaterialVault/
+├── cmd/
+│   └── server/              # Go 服务端主入口 (main.go)
+├── internal/                # Go 内部业务与底层核心包
+│   ├── config/              # 运行配置与路径管理
+│   ├── db/                  # 数据层 (db.go, models.go, seed.go)
+│   ├── handlers/            # REST API 路由处理器 (items, tags, search, assets, uploads, stats)
+│   ├── services/            # 核心业务 (capture.go, storage.go, search.go)
+│   └── utils/               # 响应封装、文本与 URL 清洗
 ├── data/                    # 本地数据目录 (已 gitignore)
 │   ├── vault.db             # SQLite 数据库与 FTS5 虚拟表
 │   └── assets/              # SHA-256 二进制文件去重存储池
 ├── extension/               # 官方浏览器扩展 (Manifest V3，免编译开箱即用)
 ├── public/                  # 静态资源 (小熊猫 mascot logo.png, favicon.png)
-├── server/                  # 纯原生 Bun 后端代码 (零外部 Web 框架依赖)
-│   ├── index.ts             # 服务端入口 (Bun.serve 原生 API 路由与静态托管)
-│   ├── db/                  # 数据层 (schema.ts, db.ts, seed.ts)
-│   ├── routes/              # 原生路由分发 (items, tags, search, assets, uploads, stats)
-│   └── services/            # 核心业务 (capture.ts, storage.ts, search.ts)
 ├── src/                     # React 前端代码
 │   ├── components/          # 业务组件 (QuickCapture, ItemCard, Modals, BatchBar)
 │   │   └── ui/              # 原子 UI 组件 (Button, Badge, Modal, ConfirmDialog, CustomSelect, DateInput)
@@ -57,6 +61,8 @@ MaterialVault/
 │   ├── lib/                 # 工具库 (api.ts, theme.tsx, types.ts, utils.ts)
 │   ├── App.tsx              # 路由配置
 │   └── index.css            # 基础样式与 Light/Dark 设计令牌
+├── go.mod
+├── go.sum
 ├── package.json
 └── tsconfig.json
 ```
@@ -107,22 +113,25 @@ MaterialVault/
 ## 6. 常用开发与运维命令
 
 ```bash
-# 1. 安装依赖
-bun install
-
-# 2. 运行完整应用 (后端 API + 静态 SPA，端口 3000)
-bun run start
-# 或开发模式:
+# 1. 运行完整应用开发模式 (Go 后端启动在 3000 端口，包含 API 与静态资源)
+go run ./cmd/server
+# 或使用 npm/bun 包装别名:
 bun run dev
 
-# 3. 运行前端独立热更新服务 (端口 5173，自动代理 /api 至 3000)
+# 2. 运行前端独立热更新服务 (端口 5173，自动代理 /api 至 3000)
 bun run dev:ui
 
-# 4. 前端生产打包 (输出至 dist/)
+# 3. 构建全量生产版本 (前端 Vite 打包 + Go 后端单一可执行程序输出至 ./bin/server.exe)
 bun run build
 
-# 5. 重置/重播演示种子数据
-bun run server/db/seed.ts
+# 4. 运行编译后的单一独立后端服务
+./bin/server.exe
+
+# 5. 运行 Go 自动化单元与集成测试
+go test ./...
+
+# 6. 重置/重播演示种子数据
+go run ./cmd/server --seed
 ```
 
 ---

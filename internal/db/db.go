@@ -1,29 +1,31 @@
-import { Database } from 'bun:sqlite';
-import { drizzle } from 'drizzle-orm/bun-sqlite';
-import * as schema from './schema';
-import fs from 'fs';
-import path from 'path';
+package db
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
-const ASSETS_DIR = path.resolve(DATA_DIR, 'assets');
-const DB_PATH = path.resolve(DATA_DIR, 'vault.db');
+import (
+	"database/sql"
+	"fmt"
+	"log"
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-if (!fs.existsSync(ASSETS_DIR)) {
-  fs.mkdirSync(ASSETS_DIR, { recursive: true });
-}
+	_ "modernc.org/sqlite"
+)
 
-export const sqlite = new Database(DB_PATH);
-sqlite.exec('PRAGMA journal_mode = WAL;');
-sqlite.exec('PRAGMA foreign_keys = ON;');
+var DB *sql.DB
 
-export const db = drizzle(sqlite, { schema });
+func InitDatabase(dbPath string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open sqlite database: %w", err)
+	}
 
-export function initDatabase() {
-  // 1. Create base tables if not exist
-  sqlite.exec(`
+	// SQLite connection settings
+	db.SetMaxOpenConns(1) // SQLite single writer optimization
+
+	// Enable WAL & Foreign Keys
+	if _, err := db.Exec(`PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;`); err != nil {
+		return nil, fmt.Errorf("failed to set pragma: %w", err)
+	}
+
+	// Create base tables
+	schemaSQL := `
     CREATE TABLE IF NOT EXISTS items (
       id TEXT PRIMARY KEY,
       type TEXT NOT NULL,
@@ -75,10 +77,14 @@ export function initDatabase() {
       message TEXT NOT NULL DEFAULT '',
       created_at INTEGER NOT NULL
     );
-  `);
+	`
 
-  // 2. Setup SQLite FTS5 virtual table
-  sqlite.exec(`
+	if _, err := db.Exec(schemaSQL); err != nil {
+		return nil, fmt.Errorf("failed to create tables: %w", err)
+	}
+
+	// Setup FTS5 virtual table
+	ftsSQL := `
     CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
       id UNINDEXED,
       title,
@@ -87,10 +93,13 @@ export function initDatabase() {
       source_url,
       tokenize='unicode61'
     );
-  `);
+	`
+	if _, err := db.Exec(ftsSQL); err != nil {
+		return nil, fmt.Errorf("failed to create fts5 table: %w", err)
+	}
 
-  // 3. Setup Triggers to keep FTS5 synchronized
-  sqlite.exec(`
+	// Setup triggers
+	triggersSQL := `
     CREATE TRIGGER IF NOT EXISTS items_ai AFTER INSERT ON items BEGIN
       INSERT INTO items_fts(id, title, description, content_text, source_url)
       VALUES (new.id, new.title, new.description, new.content_text, coalesce(new.source_url, ''));
@@ -105,9 +114,12 @@ export function initDatabase() {
       INSERT INTO items_fts(id, title, description, content_text, source_url)
       VALUES (new.id, new.title, new.description, new.content_text, coalesce(new.source_url, ''));
     END;
-  `);
+	`
+	if _, err := db.Exec(triggersSQL); err != nil {
+		return nil, fmt.Errorf("failed to create triggers: %w", err)
+	}
 
-  console.log('[DB] Database and FTS5 initialized at', DB_PATH);
+	DB = db
+	log.Printf("[DB] Database and FTS5 initialized at %s", dbPath)
+	return db, nil
 }
-
-export { DATA_DIR, ASSETS_DIR, DB_PATH };
