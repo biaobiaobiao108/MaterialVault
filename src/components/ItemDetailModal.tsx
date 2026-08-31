@@ -15,6 +15,7 @@ import {
   Plus,
   X,
   Copy,
+  Play,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -130,7 +131,10 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
   if (!isOpen) return null;
 
   const markdownAsset = item?.assets?.find((a) => a.kind === 'markdown');
-  const imageAsset = item?.assets?.find((a) => a.kind === 'original' && a.mimeType.startsWith('image/')) || item?.assets?.find((a) => a.kind === 'screenshot');
+  const imageAsset =
+    item?.assets?.find((a) => a.kind === 'thumbnail') ||
+    item?.assets?.find((a) => a.kind === 'original' && a.mimeType.startsWith('image/')) ||
+    item?.assets?.find((a) => a.kind === 'screenshot');
 
   const unlinkedTags = tagsData?.tags.filter((t) => !item?.tags?.some((it) => it.id === t.id)) || [];
 
@@ -472,12 +476,23 @@ ${item.description ? `>\n> **创作备注**：\n> ${item.description.replace(/\n
               {activeTab === 'content' && (
                 <div className="space-y-3">
                   {imageAsset && (
-                    <div className="rounded-xl border border-stone-200 dark:border-stone-800 overflow-hidden bg-stone-950 p-2 flex justify-center">
+                    <div className="relative rounded-2xl border border-stone-200 dark:border-stone-800 overflow-hidden bg-stone-950 p-2 flex flex-col items-center justify-center group">
                       <img
                         src={`/api/assets/${imageAsset.id}`}
                         alt={item.title}
-                        className="max-h-80 object-contain rounded-lg"
+                        className="max-h-80 w-auto object-contain rounded-xl"
                       />
+                      {item.type === 'video' && item.sourceUrl && (
+                        <a
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="my-1.5 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-sm transition-colors"
+                        >
+                          <Play className="h-3.5 w-3.5 fill-current" />
+                          <span>在 {item.sourceDomain?.includes('bilibili') ? 'Bilibili' : item.sourceDomain?.includes('youtube') ? 'YouTube' : '原平台'} 观看视频</span>
+                        </a>
+                      )}
                     </div>
                   )}
 

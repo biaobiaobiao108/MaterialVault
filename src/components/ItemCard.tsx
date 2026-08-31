@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Copy,
   Check,
+  Play,
 } from 'lucide-react';
 import { Item } from '../lib/types';
 import { Badge } from './ui/Badge';
@@ -90,7 +91,7 @@ export function ItemCard({
   };
 
   const imageAsset = item.assets?.find(
-    (a) => a.kind === 'screenshot' || (a.kind === 'original' && a.mimeType.startsWith('image/'))
+    (a) => a.kind === 'thumbnail' || a.kind === 'screenshot' || (a.kind === 'original' && a.mimeType.startsWith('image/'))
   );
 
   const isOrganized = item.organizationStatus === 'organized';
@@ -194,15 +195,22 @@ export function ItemCard({
               ) : null}
             </div>
 
-            {/* Thumbnail Preview for Images */}
+            {/* Thumbnail Preview for Images & Videos */}
             {imageAsset && (
-              <div className="shrink-0 h-14 w-20 sm:h-16 sm:w-24 rounded-xl overflow-hidden border border-stone-200/80 dark:border-stone-800 bg-stone-100 dark:bg-stone-800 shadow-2xs">
+              <div className="shrink-0 relative h-16 w-24 sm:h-18 sm:w-28 rounded-xl overflow-hidden border border-stone-200/80 dark:border-stone-800 bg-stone-950 shadow-2xs group/thumb">
                 <img
                   src={`/api/assets/${imageAsset.id}`}
                   alt={item.title}
                   loading="lazy"
                   className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200"
                 />
+                {item.type === 'video' && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/15 transition-colors">
+                    <div className="p-1 rounded-full bg-black/60 text-white backdrop-blur-xs shadow-sm">
+                      <Play className="h-3 w-3 fill-current ml-0.5" />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -27,17 +27,24 @@ func LogStep(itemID, step, status, message string) {
 	}
 }
 
-func extractMetaTags(htmlStr string) (title string, desc string) {
+type ExtractedMeta struct {
+	Title string
+	Desc  string
+	Image string
+}
+
+func extractMetaTags(htmlStr string) ExtractedMeta {
+	var meta ExtractedMeta
 	doc, err := html.Parse(strings.NewReader(htmlStr))
 	if err != nil {
-		return "", ""
+		return meta
 	}
 
 	var f func(*html.Node)
 	f = func(n *html.Node) {
 		if n.Type == html.ElementNode {
-			if n.Data == "title" && title == "" && n.FirstChild != nil {
-				title = strings.TrimSpace(n.FirstChild.Data)
+			if n.Data == "title" && meta.Title == "" && n.FirstChild != nil {
+				meta.Title = strings.TrimSpace(n.FirstChild.Data)
 			}
 			if n.Data == "meta" {
 				var prop, name, content string
@@ -53,10 +60,13 @@ func extractMetaTags(htmlStr string) (title string, desc string) {
 					}
 				}
 				if (prop == "og:title" || name == "twitter:title") && content != "" {
-					title = content
+					meta.Title = content
 				}
-				if (prop == "og:description" || name == "description") && desc == "" && content != "" {
-					desc = content
+				if (prop == "og:description" || name == "description" || name == "twitter:description") && meta.Desc == "" && content != "" {
+					meta.Desc = content
+				}
+				if (prop == "og:image" || name == "twitter:image" || prop == "image") && meta.Image == "" && content != "" {
+					meta.Image = content
 				}
 			}
 		}
@@ -65,7 +75,7 @@ func extractMetaTags(htmlStr string) (title string, desc string) {
 		}
 	}
 	f(doc)
-	return title, desc
+	return meta
 }
 
 func ProcessURLItem(assetsDir string, itemID, targetURL string) {
@@ -73,7 +83,6 @@ func ProcessURLItem(assetsDir string, itemID, targetURL string) {
 
 	// 1. Mark processing
 	_, _ = db.DB.Exec(`UPDATE items SET processing_status = 'processing', updated_at = ? WHERE id = ?`, now, itemID)
-	LogStep(itemID, "fetch_html", "pending", fmt.Sprintf("Starting fetch for %s", targetURL))
 
 	handleError := func(err error) {
 		log.Printf("[Capture Error] item %s: %v", itemID, err)
@@ -81,15 +90,102 @@ func ProcessURLItem(assetsDir string, itemID, targetURL string) {
 		_, _ = db.DB.Exec(`UPDATE items SET processing_status = 'failed', updated_at = ? WHERE id = ?`, time.Now().UnixMilli(), itemID)
 	}
 
-	// 2. Fetch HTML with timeout and Chrome-like User-Agent
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	// 2. Specialized Video Platform Processing (Bilibili / YouTube)
+	if videoInfo := DetectVideoInfo(targetURL); videoInfo != nil {
+		LogStep(itemID, "fetch_video_meta", "pending", fmt.Sprintf("检测到 %s 视频，正在提取元数据与高清封面", videoInfo.Platform))
+		videoRes, vErr := FetchVideoMetaAndCover(ctx, videoInfo)
+		if vErr == nil && videoRes != nil {
+			// Save Thumbnail Asset if downloaded
+			if len(videoRes.CoverData) > 0 {
+				_, saveErr := SaveAssetFile(assetsDir, SaveAssetParams{
+					ItemID:   itemID,
+					Kind:     "thumbnail",
+					MimeType: videoRes.CoverMime,
+					FileName: videoRes.CoverFileName,
+					Data:     videoRes.CoverData,
+				})
+				if saveErr == nil {
+					sizeKB := float64(len(videoRes.CoverData)) / 1024.0
+					LogStep(itemID, "save_thumbnail", "success", fmt.Sprintf("视频封面归档成功 (%.1f KB)", sizeKB))
+				} else {
+					LogStep(itemID, "save_thumbnail", "failed", "封面资产保存失败: "+saveErr.Error())
+				}
+			}
+
+			// Generate video content text
+			var sb strings.Builder
+			sb.WriteString(fmt.Sprintf("# %s\n\n", videoRes.Title))
+			sb.WriteString(fmt.Sprintf("- **平台**：%s\n", videoRes.Platform))
+			if videoRes.Author != "" {
+				sb.WriteString(fmt.Sprintf("- **作者 / UP主**：%s\n", videoRes.Author))
+			}
+			if videoRes.Duration > 0 {
+				mins := videoRes.Duration / 60
+				secs := videoRes.Duration % 60
+				sb.WriteString(fmt.Sprintf("- **时长**：%02d:%02d\n", mins, secs))
+			}
+			sb.WriteString(fmt.Sprintf("- **源链接**：%s\n\n", targetURL))
+			if videoRes.Description != "" {
+				sb.WriteString("## 视频简介\n\n")
+				sb.WriteString(videoRes.Description)
+				sb.WriteString("\n")
+			}
+
+			videoContent := sb.String()
+
+			// Save Markdown Asset
+			_, _ = SaveAssetFile(assetsDir, SaveAssetParams{
+				ItemID:   itemID,
+				Kind:     "markdown",
+				MimeType: "text/markdown",
+				FileName: "video.md",
+				Data:     []byte(videoContent),
+			})
+
+			// Read existing custom user input
+			var existingTitle, existingDesc sqlNullString
+			_ = db.DB.QueryRow(`SELECT title, description FROM items WHERE id = ?`, itemID).Scan(&existingTitle.String, &existingDesc.String)
+
+			finalTitle := existingTitle.String
+			if finalTitle == "" || finalTitle == targetURL {
+				finalTitle = videoRes.Title
+			}
+
+			finalDesc := existingDesc.String
+			if finalDesc == "" {
+				finalDesc = videoRes.Description
+			}
+
+			finalNow := time.Now().UnixMilli()
+			_, err := db.DB.Exec(`
+				UPDATE items 
+				SET type = 'video', title = ?, description = ?, content_text = ?, processing_status = 'ready', updated_at = ?
+				WHERE id = ?
+			`, strings.TrimSpace(finalTitle), strings.TrimSpace(finalDesc), videoContent, finalNow, itemID)
+
+			if err != nil {
+				handleError(fmt.Errorf("更新数据库记录失败: %w", err))
+				return
+			}
+
+			LogStep(itemID, "archive_complete", "success", "视频素材与封面归档建立成功")
+			return
+		} else if vErr != nil {
+			LogStep(itemID, "video_meta_warn", "failed", fmt.Sprintf("专用视频解析失败，将降级尝试通用网页抓取: %v", vErr))
+		}
+	}
+
+	// 3. General Webpage Fetch HTML with timeout and Chrome-like User-Agent
+	LogStep(itemID, "fetch_html", "pending", fmt.Sprintf("Starting fetch for %s", targetURL))
+
 	parsedURL, err := url.Parse(targetURL)
 	if err != nil {
 		handleError(fmt.Errorf("无效的 URL 格式: %w", err))
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
 	if err != nil {
@@ -127,11 +223,32 @@ func ProcessURLItem(assetsDir string, itemID, targetURL string) {
 	sizeKB := float64(len(bodyBytes)) / 1024.0
 	LogStep(itemID, "fetch_html", "success", fmt.Sprintf("HTML 获取成功 (%.1f KB)", sizeKB))
 
-	// 3. Extract metadata and article using readability
+	// 4. Extract metadata and article using readability
 	LogStep(itemID, "parse_content", "pending", "正在解析网页内容与正文")
-	metaTitle, metaDesc := extractMetaTags(htmlStr)
+	meta := extractMetaTags(htmlStr)
 
-	readerTitle := metaTitle
+	// Try downloading og:image as thumbnail if available
+	if meta.Image != "" {
+		imgURL := meta.Image
+		if strings.HasPrefix(imgURL, "//") {
+			imgURL = "https:" + imgURL
+		} else if strings.HasPrefix(imgURL, "/") {
+			imgURL = parsedURL.Scheme + "://" + parsedURL.Host + imgURL
+		}
+		imgData, imgMime, imgErr := downloadImage(ctx, imgURL, targetURL)
+		if imgErr == nil && len(imgData) > 0 {
+			_, _ = SaveAssetFile(assetsDir, SaveAssetParams{
+				ItemID:   itemID,
+				Kind:     "thumbnail",
+				MimeType: imgMime,
+				FileName: "thumbnail.jpg",
+				Data:     imgData,
+			})
+			LogStep(itemID, "save_thumbnail", "success", "提取到网页缩略图并归档")
+		}
+	}
+
+	readerTitle := meta.Title
 	readerContent := ""
 	readerMarkdown := ""
 
@@ -164,7 +281,7 @@ func ProcessURLItem(assetsDir string, itemID, targetURL string) {
 		}
 	}
 
-	// 4. Save Markdown Asset
+	// 5. Save Markdown Asset
 	if readerMarkdown != "" {
 		_, _ = SaveAssetFile(assetsDir, SaveAssetParams{
 			ItemID:   itemID,
@@ -177,7 +294,7 @@ func ProcessURLItem(assetsDir string, itemID, targetURL string) {
 
 	LogStep(itemID, "parse_content", "success", fmt.Sprintf("正文提取完成，正文字数: %d", len(readerContent)))
 
-	// 5. Update Item details
+	// 6. Update Item details
 	var existingTitle, existingDesc sqlNullString
 	_ = db.DB.QueryRow(`SELECT title, description FROM items WHERE id = ?`, itemID).Scan(&existingTitle.String, &existingDesc.String)
 
@@ -192,8 +309,8 @@ func ProcessURLItem(assetsDir string, itemID, targetURL string) {
 
 	finalDesc := existingDesc.String
 	if finalDesc == "" {
-		if metaDesc != "" {
-			finalDesc = metaDesc
+		if meta.Desc != "" {
+			finalDesc = meta.Desc
 		} else if len(readerContent) > 200 {
 			finalDesc = readerContent[:200]
 		} else {

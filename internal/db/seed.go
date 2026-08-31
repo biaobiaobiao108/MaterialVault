@@ -53,7 +53,7 @@ func Seed() error {
 	_, _ = DB.Exec(`
 		INSERT INTO items (id, type, title, description, source_url, canonical_url, source_domain, content_text, organization_status, processing_status, favorite, captured_at, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, item1ID, "url", "良子与华哥在训练基地的体能训练实录", "动作非常敏捷，核心力量与击打爆发力很足，适合作为第 2 幕对决的动作分析证据 #良子 #华哥 #格斗拳击", sourceURL1, canonicalURL1, domain1, content1, "inbox", "ready", 1, t1, t1, t1)
+	`, item1ID, "video", "良子与华哥在训练基地的体能训练实录", "动作非常敏捷，核心力量与击打爆发力很足，适合作为第 2 幕对决的动作分析证据 #良子 #华哥 #格斗拳击", sourceURL1, canonicalURL1, domain1, content1, "inbox", "ready", 1, t1, t1, t1)
 
 	item2ID := uuid.New().String()
 	t2 := now - 3600*1000*5

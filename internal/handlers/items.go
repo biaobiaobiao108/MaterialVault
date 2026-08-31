@@ -199,10 +199,15 @@ func HandleCaptureURL(assetsDir string) http.HandlerFunc {
 		}
 		description := strings.TrimSpace(req.Description)
 
+		itemType := "url"
+		if services.DetectVideoInfo(normalized) != nil {
+			itemType = "video"
+		}
+
 		_, err = db.DB.Exec(`
 			INSERT INTO items (id, type, title, description, source_url, canonical_url, source_domain, content_text, organization_status, processing_status, favorite, captured_at, created_at, updated_at)
-			VALUES (?, 'url', ?, ?, ?, ?, ?, '', 'inbox', 'pending', 0, ?, ?, ?)
-		`, id, title, description, req.URL, normalized, domain, now, now, now)
+			VALUES (?, ?, ?, ?, ?, ?, ?, '', 'inbox', 'pending', 0, ?, ?, ?)
+		`, id, itemType, title, description, req.URL, normalized, domain, now, now, now)
 
 		if err != nil {
 			utils.JSONError(w, http.StatusInternalServerError, "保存素材记录失败: "+err.Error())
