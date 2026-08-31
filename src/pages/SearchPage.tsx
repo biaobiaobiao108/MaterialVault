@@ -10,10 +10,7 @@ import {
   Search as SearchIcon,
   Filter,
   RefreshCw,
-  FolderKanban,
-  Tag as TagIcon,
   Star,
-  Globe,
   X,
 } from 'lucide-react';
 
@@ -21,7 +18,6 @@ export function SearchPage() {
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
   const [type, setType] = useState<string>('');
-  const [topicId, setTopicId] = useState<string>('');
   const [tagId, setTagId] = useState<string>('');
   const [domain, setDomain] = useState<string>('');
   const [status, setStatus] = useState<string>('');
@@ -31,11 +27,6 @@ export function SearchPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
-
-  const { data: topicsData } = useQuery({
-    queryKey: ['topics'],
-    queryFn: () => api.getTopics(),
-  });
 
   const { data: tagsData } = useQuery({
     queryKey: ['tags'],
@@ -50,7 +41,6 @@ export function SearchPage() {
       'search',
       activeQuery,
       type,
-      topicId,
       tagId,
       domain,
       status,
@@ -62,7 +52,6 @@ export function SearchPage() {
       api.search({
         q: activeQuery || undefined,
         type: (type || undefined) as any,
-        topicId: topicId || undefined,
         tagId: tagId || undefined,
         domain: domain || undefined,
         status: (status || undefined) as any,
@@ -81,7 +70,6 @@ export function SearchPage() {
     setQuery('');
     setActiveQuery('');
     setType('');
-    setTopicId('');
     setTagId('');
     setDomain('');
     setStatus('');
@@ -93,7 +81,6 @@ export function SearchPage() {
   const hasActiveFilters =
     Boolean(activeQuery) ||
     Boolean(type) ||
-    Boolean(topicId) ||
     Boolean(tagId) ||
     Boolean(domain) ||
     Boolean(status) ||
@@ -180,7 +167,7 @@ export function SearchPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
             {/* Type */}
             <div>
               <label className="text-stone-500 dark:text-stone-400 font-semibold block mb-1">
@@ -198,26 +185,6 @@ export function SearchPage() {
                   { value: 'image', label: '🖼 图片 (Image)' },
                   { value: 'document', label: '📄 文档 (Document)' },
                   { value: 'video', label: '🎬 视频 (Video)' },
-                ]}
-              />
-            </div>
-
-            {/* Topic */}
-            <div>
-              <label className="text-stone-500 dark:text-stone-400 font-semibold block mb-1">
-                所属选题
-              </label>
-              <CustomSelect
-                size="sm"
-                value={topicId}
-                onChange={setTopicId}
-                placeholder="全部选题"
-                options={[
-                  { value: '', label: '全部选题' },
-                  ...(topicsData?.topics.map((t) => ({
-                    value: t.id,
-                    label: t.title,
-                  })) || []),
                 ]}
               />
             </div>
@@ -292,7 +259,7 @@ export function SearchPage() {
             </div>
 
             {/* Favorite Checkbox */}
-            <div className="flex items-center pt-5">
+            <div className="flex items-center pt-2">
               <label className="flex items-center gap-2 text-xs font-semibold text-stone-700 dark:text-stone-300 cursor-pointer">
                 <input
                   type="checkbox"

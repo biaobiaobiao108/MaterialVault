@@ -3,7 +3,6 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   Inbox,
   Layers,
-  FolderKanban,
   Search,
   Settings,
   Sun,
@@ -39,13 +38,6 @@ export function Layout() {
       label: '全部素材',
       icon: Layers,
       badge: stats?.totalItems,
-      badgeVariant: 'stone',
-    },
-    {
-      to: '/topics',
-      label: '选题资料库',
-      icon: FolderKanban,
-      badge: stats?.totalTopics,
       badgeVariant: 'stone',
     },
     {
@@ -213,12 +205,12 @@ export function Layout() {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto min-h-dvh flex flex-col pb-20 md:pb-8">
-        <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-8 sm:py-8 flex-1">
+        <div className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-8 sm:py-8 flex-1">
           <Outlet />
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation (Safe area compliant) */}
+      {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--bg-surface)]/95 backdrop-blur-md border-t border-stone-200/80 dark:border-stone-800 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around px-2 py-1">
         {navItems.map((item) => {
           const Icon = item.icon;

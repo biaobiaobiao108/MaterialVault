@@ -6,17 +6,16 @@
 
 ## 1. 产品定位与边界
 
-**Material Vault 是专为视频创作者打造的：素材收件箱 + 网页证据归档库 + 选题资料库。**
+**Material Vault 是专为视频创作者打造的：素材收件箱 + 网页证据归档库 + 极速标签检索系统。**
 
 ### 核心链路
 ```text
-发现灵感/素材 → 两步内极速保存 (Ctrl+V) → 自动后台归档正文与快照 → 暂存 Inbox → 毫秒级 FTS5 搜索 → 关联选题 → 导出 AI Context / 白板推演
+发现灵感/素材 → 两步内极速保存 (Ctrl+V，支持 #标签 自动提取) → 自动后台归档正文与快照 → 暂存 Inbox → 毫秒级 FTS5 搜索与标签筛选
 ```
 
 ### 明确不做 (Non-Goals)
 - ❌ 视频剪辑与在线播放器增强
-- ❌ 选题看板进度流转（由外部 Kanban 负责）
-- ❌ 脚本长文编写与 Notion 式块级编辑器（由写稿工具负责）
+- ❌ 选题看板与长文块级编辑器（由外部专用工具负责）
 - ❌ 复杂多租户 RBAC、协同评论与知识图谱
 - ❌ 向量数据库 (Vector DB) / RAG / Heavy AI Agent
 
@@ -48,12 +47,12 @@ MaterialVault/
 ├── server/                  # 纯原生 Bun 后端代码 (零外部 Web 框架依赖)
 │   ├── index.ts             # 服务端入口 (Bun.serve 原生 API 路由与静态托管)
 │   ├── db/                  # 数据层 (schema.ts, db.ts, seed.ts)
-│   ├── routes/              # 原生路由分发 (items, topics, tags, search, assets, uploads, stats)
+│   ├── routes/              # 原生路由分发 (items, tags, search, assets, uploads, stats)
 │   └── services/            # 核心业务 (capture.ts, storage.ts, search.ts)
 ├── src/                     # React 前端代码
 │   ├── components/          # 业务组件 (QuickCapture, ItemCard, Modals, BatchBar)
-│   │   └── ui/              # 原子 UI 组件 (Button, Badge, Modal, ConfirmDialog, DateInput)
-│   ├── pages/               # 页面 (Inbox, Items, Topics, TopicDetail, Search, Settings)
+│   │   └── ui/              # 原子 UI 组件 (Button, Badge, Modal, ConfirmDialog, CustomSelect, DateInput)
+│   ├── pages/               # 页面 (Inbox, Items, Search, Settings)
 │   ├── lib/                 # 工具库 (api.ts, theme.tsx, types.ts, utils.ts)
 │   ├── App.tsx              # 路由配置
 │   └── index.css            # 基础样式与 Light/Dark 设计令牌
@@ -65,12 +64,13 @@ MaterialVault/
 
 ## 4. 核心业务设计原则
 
-### 4.1 Capture Friction 最小化
+### 4.1 Capture Friction 最小化 & `#标签` 自动提取
 - 用户粘贴 URL、文字或拖入文件后，立即返回 202 并提示保存成功。
+- 在输入框或正文任意位置输入 `#标签名`（如 `#格斗 #AI工具`），前端实时高亮展示，后端保存时自动创建并关联标签。
 - 耗时的网络请求、HTML 解析、Markdown 提取与网页截图**必须在后台异步执行**，绝不阻塞用户记录思路。
 
 ### 4.2 归档失败 ≠ 保存失败 (Archive Resilience)
-- 遇到社交平台登录墙或防爬虫导致抓取失败时，**素材记录本体、用户笔记与选题关联绝对不能丢失**。
+- 遇到社交平台登录墙或防爬虫导致抓取失败时，**素材记录本体、用户笔记与标签绝对不能丢失**。
 - 将 `processingStatus` 标记为 `failed` 并记录流水日志，界面提供显式的 `[重新抓取]` 入口。
 
 ### 4.3 二进制文件 SHA-256 去重

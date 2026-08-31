@@ -1,7 +1,6 @@
 import { initDatabase } from './db/db';
 import { seed } from './db/seed';
 import { handleItems } from './routes/items';
-import { handleTopics } from './routes/topics';
 import { handleTags } from './routes/tags';
 import { handleAssets } from './routes/assets';
 import { handleUploads } from './routes/uploads';
@@ -40,11 +39,6 @@ const server = Bun.serve({
           return await handleItems(req, url, sub);
         }
 
-        if (apiPath.startsWith('topics')) {
-          const sub = apiPath.slice(6).replace(/^\//, '');
-          return await handleTopics(req, url, sub);
-        }
-
         if (apiPath.startsWith('tags')) {
           const sub = apiPath.slice(4).replace(/^\//, '');
           return await handleTags(req, url, sub);
@@ -75,13 +69,11 @@ const server = Bun.serve({
     }
 
     // 3. Static Files from dist/ or public/
-    // Check public directory (e.g. /logo.png, /favicon.png)
     const publicFilePath = path.join(PUBLIC_DIR, pathname);
     if (fs.existsSync(publicFilePath) && fs.statSync(publicFilePath).isFile()) {
       return new Response(Bun.file(publicFilePath));
     }
 
-    // Check dist directory
     const distFilePath = path.join(DIST_DIR, pathname);
     if (fs.existsSync(distFilePath) && fs.statSync(distFilePath).isFile()) {
       return new Response(Bun.file(distFilePath));

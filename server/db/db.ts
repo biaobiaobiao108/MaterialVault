@@ -53,28 +53,11 @@ export function initDatabase() {
       created_at INTEGER NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS topics (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      description TEXT NOT NULL DEFAULT '',
-      status TEXT NOT NULL DEFAULT 'active',
-      external_topic_id TEXT,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-
     CREATE TABLE IF NOT EXISTS tags (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
       color TEXT NOT NULL DEFAULT 'stone',
       created_at INTEGER NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS item_topics (
-      item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
-      topic_id TEXT NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
-      created_at INTEGER NOT NULL,
-      PRIMARY KEY (item_id, topic_id)
     );
 
     CREATE TABLE IF NOT EXISTS item_tags (

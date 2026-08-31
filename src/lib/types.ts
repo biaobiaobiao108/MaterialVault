@@ -1,7 +1,15 @@
-export type ItemType = 'url' | 'image' | 'video' | 'document' | 'note';
+export type ItemType = 'url' | 'note' | 'image' | 'document' | 'video';
 export type OrganizationStatus = 'inbox' | 'organized' | 'archived';
 export type ProcessingStatus = 'pending' | 'processing' | 'ready' | 'failed';
-export type AssetKind = 'original' | 'screenshot' | 'html' | 'markdown' | 'pdf' | 'thumbnail';
+export type AssetKind = 'screenshot' | 'html' | 'markdown' | 'original' | 'thumbnail';
+
+export interface Tag {
+  id: string;
+  name: string;
+  color?: string | null;
+  itemCount?: number;
+  createdAt: number;
+}
 
 export interface Asset {
   id: string;
@@ -10,36 +18,15 @@ export interface Asset {
   mimeType: string;
   fileName: string;
   fileSize: number;
-  sha256?: string;
   storagePath: string;
   createdAt: number;
-}
-
-export interface Topic {
-  id: string;
-  title: string;
-  description: string;
-  status: 'active' | 'archived';
-  externalTopicId?: string | null;
-  createdAt: number;
-  updatedAt: number;
-  itemCount?: number;
-  items?: Item[];
-}
-
-export interface Tag {
-  id: string;
-  name: string;
-  color: string;
-  createdAt: number;
-  itemCount?: number;
 }
 
 export interface IngestionLog {
   id: string;
   itemId: string;
   step: string;
-  status: 'pending' | 'success' | 'failed';
+  status: 'pending' | 'running' | 'success' | 'failed';
   message: string;
   createdAt: number;
 }
@@ -48,18 +35,17 @@ export interface Item {
   id: string;
   type: ItemType;
   title: string;
-  description: string;
+  description?: string | null;
   sourceUrl?: string | null;
   canonicalUrl?: string | null;
   sourceDomain?: string | null;
-  contentText: string;
+  contentText?: string | null;
   organizationStatus: OrganizationStatus;
   processingStatus: ProcessingStatus;
   favorite: boolean;
-  capturedAt?: number | null;
+  capturedAt: number;
   createdAt: number;
   updatedAt: number;
-  topics?: Topic[];
   tags?: Tag[];
   assets?: Asset[];
   logs?: IngestionLog[];
@@ -71,10 +57,22 @@ export interface VaultStats {
   organizedCount: number;
   archivedCount: number;
   favoriteCount: number;
-  totalTopics: number;
   totalTags: number;
   assetCount: number;
   assetBytes: number;
-  typeCounts: { type: ItemType; count: number }[];
-  topDomains: { domain: string; count: number }[];
+  typeCounts?: { type: string; count: number }[];
+  topDomains?: { domain: string; count: number }[];
+}
+
+export interface SearchParams {
+  q?: string;
+  type?: ItemType;
+  status?: OrganizationStatus;
+  tagId?: string;
+  domain?: string;
+  favorite?: boolean;
+  startDate?: number;
+  endDate?: number;
+  limit?: number;
+  offset?: number;
 }

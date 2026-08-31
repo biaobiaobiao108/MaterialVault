@@ -8,11 +8,7 @@ import {
   Star,
   CheckCircle2,
   Archive,
-  MoreVertical,
-  ExternalLink,
   AlertTriangle,
-  FolderKanban,
-  Tag as TagIcon,
   RefreshCw,
 } from 'lucide-react';
 import { Item } from '../lib/types';
@@ -39,8 +35,6 @@ export function ItemCard({
   onToggleFavorite,
   onToggleOrganized,
   onArchive,
-  onDelete,
-  onRetry,
 }: ItemCardProps) {
   const getTypeIcon = () => {
     switch (item.type) {
@@ -150,21 +144,16 @@ export function ItemCard({
             </p>
           ) : null}
 
-          {/* Topics & Tags Badges */}
-          <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-            {item.topics?.map((topic) => (
-              <Badge key={topic.id} variant="indigo" size="sm">
-                <FolderKanban className="h-3 w-3 opacity-70" />
-                <span>{topic.title}</span>
-              </Badge>
-            ))}
-
-            {item.tags?.map((tag) => (
-              <Badge key={tag.id} variant="stone" size="sm">
-                <span>#{tag.name}</span>
-              </Badge>
-            ))}
-          </div>
+          {/* Tags Badges */}
+          {item.tags && item.tags.length > 0 && (
+            <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+              {item.tags.map((tag) => (
+                <Badge key={tag.id} variant="stone" size="sm">
+                  <span>#{tag.name}</span>
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right Action Icons */}

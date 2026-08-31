@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import { db } from '../db/db';
-import { items, itemTopics, itemTags } from '../db/schema';
+import { items, itemTags } from '../db/schema';
 import { saveAssetFile } from '../services/storage';
-import { getFullItem } from './items';
+import { getFullItem, syncItemTags } from './items';
 import { json } from '../utils';
 
 export async function handleUploads(req: Request): Promise<Response> {
@@ -20,7 +20,6 @@ export async function handleUploads(req: Request): Promise<Response> {
   const files = formData.getAll('file') as File[];
   const title = formData.get('title') as string | null;
   const description = (formData.get('description') as string | null) || '';
-  const topicIds = formData.getAll('topicIds') as string[];
   const tagIds = formData.getAll('tagIds') as string[];
 
   if (!files || files.length === 0 || !(files[0] instanceof File)) {
@@ -78,23 +77,8 @@ export async function handleUploads(req: Request): Promise<Response> {
       data: buffer,
     });
 
-    // Link topics
-    for (const tId of topicIds) {
-      if (tId) {
-        try {
-          await db.insert(itemTopics).values({ itemId, topicId: tId, createdAt: now });
-        } catch (_) {}
-      }
-    }
-
-    // Link tags
-    for (const tgId of tagIds) {
-      if (tgId) {
-        try {
-          await db.insert(itemTags).values({ itemId, tagId: tgId, createdAt: now });
-        } catch (_) {}
-      }
-    }
+    // Link & extract tags
+    await syncItemTags(itemId, tagIds || [], `${itemTitle} ${description} ${contentText}`);
 
     const full = await getFullItem(itemId);
     createdItems.push(full);

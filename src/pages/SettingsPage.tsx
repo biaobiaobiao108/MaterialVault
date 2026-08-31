@@ -73,7 +73,7 @@ export function SettingsPage() {
             </span>
           </div>
           <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed">
-            专为视频创作打造的低摩擦素材收件箱、网页证据归档库与选题推演底座。
+            专为视频创作打造的低摩擦素材收件箱、网页证据归档库与极速标签检索系统。
           </p>
         </div>
       </section>
@@ -142,12 +142,12 @@ export function SettingsPage() {
           </div>
 
           <div className="p-4 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900">
-            <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">选题与标签</span>
-            <div className="mt-1 text-2xl font-bold font-mono tabular-nums text-stone-900 dark:text-stone-100">
-              {stats?.totalTopics || 0}
+            <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">标签总数</span>
+            <div className="mt-1 text-2xl font-bold font-mono tabular-nums text-indigo-600 dark:text-indigo-400">
+              {stats?.totalTags || 0}
             </div>
             <span className="text-[11px] text-stone-400">
-              关联标签: {stats?.totalTags || 0} 个
+              支持 #标签 快速归类
             </span>
           </div>
 

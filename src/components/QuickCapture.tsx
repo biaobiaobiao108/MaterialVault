@@ -1,13 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   Link2,
   FileText,
-  UploadCloud,
-  CornerDownLeft,
-  FolderKanban,
   Tag as TagIcon,
-  Sparkles,
   Paperclip,
+  Hash,
+  X,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -19,24 +17,30 @@ import { cn } from '../lib/utils';
 export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
   const [content, setContent] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
-  const [selectedTopicId, setSelectedTopicId] = useState<string>('');
   const [selectedTagId, setSelectedTagId] = useState<string>('');
-  const [showMetadataBar, setShowMetadataBar] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toast = useToast();
   const queryClient = useQueryClient();
 
-  const { data: topicsData } = useQuery({
-    queryKey: ['topics'],
-    queryFn: () => api.getTopics('active'),
-  });
-
   const { data: tagsData } = useQuery({
     queryKey: ['tags'],
     queryFn: api.getTags,
   });
+
+  // Extract real-time #tags from current input text
+  const extractedTags = useMemo(() => {
+    if (!content) return [];
+    const matches = content.match(/(?:^|\s)#([\p{L}\p{N}_-]+)/gu);
+    if (!matches) return [];
+    const set = new Set<string>();
+    for (const m of matches) {
+      const clean = m.trim().replace(/^#/, '').trim();
+      if (clean.length > 0) set.add(clean);
+    }
+    return Array.from(set);
+  }, [content]);
 
   const isUrl = /^https?:\/\/[^\s]+$/i.test(content.trim());
 
@@ -50,7 +54,9 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
         toast.success('已保存至 Inbox，正在后台抓取并归档网页证据...', 'URL 已保存');
       }
       setContent('');
+      setSelectedTagId('');
       queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
       onCaptured?.();
     },
@@ -65,7 +71,9 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
     onSuccess: () => {
       toast.success('备忘已保存至 Inbox', '记录成功');
       setContent('');
+      setSelectedTagId('');
       queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
       onCaptured?.();
     },
@@ -80,6 +88,7 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
     onSuccess: (data) => {
       toast.success(`成功保存 ${data.items.length} 个文件/截图`, '文件已归档');
       queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
       onCaptured?.();
     },
@@ -93,19 +102,16 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
     const trimmed = content.trim();
     if (!trimmed) return;
 
-    const topicIds = selectedTopicId ? [selectedTopicId] : undefined;
     const tagIds = selectedTagId ? [selectedTagId] : undefined;
 
     if (isUrl) {
       urlMutation.mutate({
         url: trimmed,
-        topicIds,
         tagIds,
       });
     } else {
       noteMutation.mutate({
         content: trimmed,
-        topicIds,
         tagIds,
       });
     }
@@ -128,13 +134,11 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
     for (let i = 0; i < files.length; i++) {
       formData.append('file', files[i]);
     }
-    if (selectedTopicId) formData.append('topicIds', selectedTopicId);
     if (selectedTagId) formData.append('tagIds', selectedTagId);
 
     uploadMutation.mutate(formData);
   };
 
-  // Paste Event handling (e.g. image paste anywhere or in input)
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
     const files: File[] = [];
@@ -148,6 +152,18 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
       e.preventDefault();
       handleFiles(files);
     }
+  };
+
+  const insertTagToContent = (tagName: string) => {
+    if (!content.includes(`#${tagName}`)) {
+      setContent((prev) => (prev ? `${prev.trim()} #${tagName} ` : `#${tagName} `));
+      textareaRef.current?.focus();
+    }
+  };
+
+  const removeTagFromContent = (tagName: string) => {
+    const regex = new RegExp(`(?:^|\\s)#${tagName}(?=\\s|$)`, 'g');
+    setContent((prev) => prev.replace(regex, ' ').trim());
   };
 
   const isSubmitting = urlMutation.isPending || noteMutation.isPending || uploadMutation.isPending;
@@ -185,11 +201,36 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            onFocus={() => setShowMetadataBar(true)}
-            placeholder="粘贴 URL、记录思考备忘，或直接拖入文件 / 粘贴截图..."
+            placeholder="粘贴 URL、记录思考备忘（输入 #标签 可自动归类），或拖入文件 / 粘贴截图..."
             className="w-full resize-none bg-transparent text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none leading-relaxed"
           />
         </div>
+
+        {/* Real-time Extracted Hashtag Badges */}
+        {extractedTags.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap pt-1 pb-1 text-xs">
+            <span className="text-[11px] text-stone-400 flex items-center gap-1 font-mono">
+              <Hash className="h-3 w-3 text-rose-500" />
+              <span>检测到标签:</span>
+            </span>
+            {extractedTags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 font-medium text-xs border border-rose-500/20"
+              >
+                <span>#{tag}</span>
+                <button
+                  type="button"
+                  onClick={() => removeTagFromContent(tag)}
+                  className="text-rose-400 hover:text-rose-600 dark:hover:text-rose-300"
+                  title="移除标签"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Action Controls Bar */}
         <div className="mt-2.5 pt-2.5 border-t border-stone-100 dark:border-stone-800/80 flex flex-wrap items-center justify-between gap-2.5">
@@ -212,37 +253,25 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
               <span>添加附件</span>
             </button>
 
-            {/* Quick Topic Selector */}
-            <div className="w-36 sm:w-40">
-              <CustomSelect
-                size="sm"
-                value={selectedTopicId}
-                onChange={setSelectedTopicId}
-                placeholder="+ 关联选题"
-                options={[
-                  { value: '', label: '无选题关联' },
-                  ...(topicsData?.topics.map((t) => ({
-                    value: t.id,
-                    label: t.title,
-                    icon: <FolderKanban className="h-3 w-3 text-indigo-500" />,
-                  })) || []),
-                ]}
-              />
-            </div>
-
             {/* Quick Tag Selector */}
-            <div className="w-32 sm:w-36">
+            <div className="w-36 sm:w-44">
               <CustomSelect
                 size="sm"
                 value={selectedTagId}
-                onChange={setSelectedTagId}
-                placeholder="+ 关联标签"
+                onChange={(val) => {
+                  setSelectedTagId(val);
+                  const selectedTag = tagsData?.tags.find((t) => t.id === val);
+                  if (selectedTag) {
+                    insertTagToContent(selectedTag.name);
+                  }
+                }}
+                placeholder="+ 选择标签 / 输入#标签"
                 options={[
-                  { value: '', label: '无标签' },
+                  { value: '', label: '无额外标签' },
                   ...(tagsData?.tags.map((tg) => ({
                     value: tg.id,
                     label: `#${tg.name}`,
-                    icon: <TagIcon className="h-3 w-3 text-amber-500" />,
+                    icon: <TagIcon className="h-3 w-3 text-rose-500" />,
                   })) || []),
                 ]}
               />

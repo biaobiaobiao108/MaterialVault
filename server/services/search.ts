@@ -1,10 +1,9 @@
 import { sqlite } from '../db/db';
 
-export interface SearchOptions {
+export interface SearchFilters {
   q?: string;
   type?: string;
   organizationStatus?: 'inbox' | 'organized' | 'archived';
-  topicId?: string;
   tagId?: string;
   domain?: string;
   favorite?: boolean;
@@ -14,12 +13,11 @@ export interface SearchOptions {
   offset?: number;
 }
 
-export function searchItems(options: SearchOptions) {
+export function searchItems(filters: SearchFilters) {
   const {
     q,
     type,
     organizationStatus,
-    topicId,
     tagId,
     domain,
     favorite,
@@ -27,54 +25,29 @@ export function searchItems(options: SearchOptions) {
     endDate,
     limit = 50,
     offset = 0,
-  } = options;
+  } = filters;
 
-  let querySql = `
-    SELECT DISTINCT 
-      i.id,
-      i.type,
-      i.title,
-      i.description,
-      i.source_url as sourceUrl,
-      i.canonical_url as canonicalUrl,
-      i.source_domain as sourceDomain,
-      i.organization_status as organizationStatus,
-      i.processing_status as processingStatus,
-      i.favorite,
-      i.captured_at as capturedAt,
-      i.created_at as createdAt,
-      i.updated_at as updatedAt
-  `;
-
+  const whereClauses: string[] = [];
   const params: any[] = [];
   const joins: string[] = [];
-  const whereClauses: string[] = [];
 
+  // FTS5 Subquery Match
   if (q && q.trim()) {
-    const rawTerm = q.trim();
-    const sanitizedQ = rawTerm.replace(/"/g, '""');
-    const tokens = sanitizedQ
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((t) => `"${t}"*`)
-      .join(' ');
+    const rawTerms = q.trim().split(/\s+/).filter(Boolean);
+    const cleaned = rawTerms
+      .map((t) => t.replace(/["*]/g, ''))
+      .filter((t) => t.length > 0);
 
-    whereClauses.push(
-      `(i.id IN (SELECT id FROM items_fts WHERE items_fts MATCH ?) OR i.title LIKE ? OR i.content_text LIKE ? OR i.description LIKE ? OR i.source_url LIKE ?)`
-    );
-    params.push(tokens, `%${rawTerm}%`, `%${rawTerm}%`, `%${rawTerm}%`, `%${rawTerm}%`);
-  }
-
-  if (topicId) {
-    joins.push(`JOIN item_topics it ON it.item_id = i.id`);
-    whereClauses.push(`it.topic_id = ?`);
-    params.push(topicId);
-  }
-
-  if (tagId) {
-    joins.push(`JOIN item_tags itg ON itg.item_id = i.id`);
-    whereClauses.push(`itg.tag_id = ?`);
-    params.push(tagId);
+    if (cleaned.length > 0) {
+      const ftsQuery = cleaned.map((t) => `"${t}"*`).join(' AND ');
+      whereClauses.push(
+        `(i.id IN (SELECT id FROM items_fts WHERE items_fts MATCH ?) OR i.title LIKE ? OR i.content_text LIKE ? OR i.description LIKE ?)`
+      );
+      params.push(ftsQuery);
+      params.push(`%${q.trim()}%`);
+      params.push(`%${q.trim()}%`);
+      params.push(`%${q.trim()}%`);
+    }
   }
 
   if (type) {
@@ -92,9 +65,8 @@ export function searchItems(options: SearchOptions) {
     params.push(`%${domain}%`);
   }
 
-  if (favorite !== undefined) {
-    whereClauses.push(`i.favorite = ?`);
-    params.push(favorite ? 1 : 0);
+  if (favorite === true) {
+    whereClauses.push(`i.favorite = 1`);
   }
 
   if (startDate) {
@@ -107,21 +79,39 @@ export function searchItems(options: SearchOptions) {
     params.push(endDate);
   }
 
-  querySql += ` FROM items i ` + joins.join(' ');
-
-  if (whereClauses.length > 0) {
-    querySql += ` WHERE ` + whereClauses.join(' AND ');
+  if (tagId) {
+    joins.push(`JOIN item_tags itg ON itg.item_id = i.id`);
+    whereClauses.push(`itg.tag_id = ?`);
+    params.push(tagId);
   }
 
-  querySql += ` ORDER BY i.created_at DESC LIMIT ? OFFSET ?`;
+  let sql = `SELECT DISTINCT i.* FROM items i`;
+  if (joins.length > 0) {
+    sql += ` ` + joins.join(' ');
+  }
+  if (whereClauses.length > 0) {
+    sql += ` WHERE ` + whereClauses.join(' AND ');
+  }
+
+  sql += ` ORDER BY i.created_at DESC LIMIT ? OFFSET ?`;
   params.push(limit, offset);
 
-  const stmt = sqlite.prepare(querySql);
-  const rows = stmt.all(...params) as any[];
+  const results = sqlite.prepare(sql).all(...params) as any[];
 
-  // Convert SQLite boolean integer 0/1 to boolean
-  return rows.map((r) => ({
-    ...r,
+  return results.map((r) => ({
+    id: r.id,
+    type: r.type,
+    title: r.title,
+    description: r.description,
+    sourceUrl: r.source_url,
+    canonicalUrl: r.canonical_url,
+    sourceDomain: r.source_domain,
+    contentText: r.content_text,
+    organizationStatus: r.organization_status,
+    processingStatus: r.processing_status,
     favorite: Boolean(r.favorite),
+    capturedAt: r.captured_at,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
   }));
 }

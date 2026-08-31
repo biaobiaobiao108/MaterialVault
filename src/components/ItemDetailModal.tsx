@@ -3,24 +3,20 @@ import {
   Globe,
   FileText,
   ExternalLink,
-  Calendar,
   Star,
   CheckCircle2,
   Archive,
   Trash2,
   RefreshCw,
-  FolderKanban,
   Tag as TagIcon,
   FileCode,
   Download,
   AlertTriangle,
-  Clock,
   Plus,
   X,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Item, Asset } from '../lib/types';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -57,12 +53,6 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
     },
   });
 
-  const { data: topicsData } = useQuery({
-    queryKey: ['topics'],
-    queryFn: () => api.getTopics(),
-    enabled: isOpen,
-  });
-
   const { data: tagsData } = useQuery({
     queryKey: ['tags'],
     queryFn: api.getTags,
@@ -85,6 +75,7 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
       toast.success('素材已更新');
       queryClient.invalidateQueries({ queryKey: ['item', itemId] });
       queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
       setEditingTitle(false);
       setEditingNote(false);
@@ -108,28 +99,11 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
     onSuccess: () => {
       toast.success('素材已删除');
       queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
       onClose();
     },
     onError: (err: any) => toast.error(err.message || '删除失败'),
-  });
-
-  // Link Topic Mutation
-  const linkTopicMutation = useMutation({
-    mutationFn: (topicId: string) => api.linkTopic(itemId!, topicId),
-    onSuccess: () => {
-      refetch();
-      queryClient.invalidateQueries({ queryKey: ['items'] });
-    },
-  });
-
-  // Unlink Topic Mutation
-  const unlinkTopicMutation = useMutation({
-    mutationFn: (topicId: string) => api.unlinkTopic(itemId!, topicId),
-    onSuccess: () => {
-      refetch();
-      queryClient.invalidateQueries({ queryKey: ['items'] });
-    },
   });
 
   // Link Tag Mutation
@@ -157,6 +131,8 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
   const markdownAsset = item?.assets?.find((a) => a.kind === 'markdown');
   const htmlAsset = item?.assets?.find((a) => a.kind === 'html');
   const imageAsset = item?.assets?.find((a) => a.kind === 'original' && a.mimeType.startsWith('image/')) || item?.assets?.find((a) => a.kind === 'screenshot');
+
+  const unlinkedTags = tagsData?.tags.filter((t) => !item?.tags?.some((it) => it.id === t.id)) || [];
 
   return (
     <>
@@ -293,78 +269,55 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
               )}
             </div>
 
-            {/* Topics & Tags Association Box */}
+            {/* Tags Association Box */}
             <div className="p-3.5 rounded-xl border border-stone-100 dark:border-stone-800/80 bg-stone-50/70 dark:bg-stone-800/40 space-y-2.5">
-              {/* Topic association */}
               <div className="flex items-center gap-2 flex-wrap text-xs">
-                <span className="font-semibold text-stone-500 dark:text-stone-400 flex items-center gap-1 min-w-16">
-                  <FolderKanban className="h-3.5 w-3.5" />
-                  <span>选题：</span>
-                </span>
-                {item.topics?.map((topic) => (
-                  <span
-                    key={topic.id}
-                    className="inline-flex items-center gap-1 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-lg font-medium border border-indigo-200/50 dark:border-indigo-800/50"
-                  >
-                    <span>{topic.title}</span>
-                    <button
-                      type="button"
-                      onClick={() => unlinkTopicMutation.mutate(topic.id)}
-                      className="text-indigo-400 hover:text-indigo-600"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-                <div className="w-36 sm:w-44">
-                  <CustomSelect
-                    size="sm"
-                    value=""
-                    onChange={(val) => {
-                      if (val) {
-                        linkTopicMutation.mutate(val);
-                      }
-                    }}
-                    placeholder="+ 关联新选题"
-                    options={[
-                      { value: '', label: '+ 关联新选题' },
-                      ...(topicsData?.topics
-                        .filter((t) => !item.topics?.some((it) => it.id === t.id))
-                        .map((t) => ({
-                          value: t.id,
-                          label: t.title,
-                          icon: <FolderKanban className="h-3 w-3 text-indigo-500" />,
-                        })) || []),
-                    ]}
-                  />
-                </div>
-              </div>
-
-              {/* Tag association */}
-              <div className="flex items-center gap-2 flex-wrap text-xs">
-                <span className="font-semibold text-stone-500 dark:text-stone-400 flex items-center gap-1 min-w-16">
-                  <TagIcon className="h-3.5 w-3.5" />
+                <span className="font-semibold text-stone-500 dark:text-stone-400 flex items-center gap-1 min-w-14">
+                  <TagIcon className="h-3.5 w-3.5 text-rose-500" />
                   <span>标签：</span>
                 </span>
                 {item.tags?.map((tag) => (
                   <span
                     key={tag.id}
-                    className="inline-flex items-center gap-1 bg-stone-200/70 dark:bg-stone-700 px-2 py-0.5 rounded-lg font-medium text-stone-700 dark:text-stone-200"
+                    className="inline-flex items-center gap-1 bg-stone-200/80 dark:bg-stone-700 px-2 py-0.5 rounded-lg font-medium text-stone-800 dark:text-stone-100"
                   >
                     <span>#{tag.name}</span>
                     <button
                       type="button"
                       onClick={() => unlinkTagMutation.mutate(tag.id)}
-                      className="text-stone-400 hover:text-stone-600"
+                      className="text-stone-400 hover:text-rose-500"
                     >
                       <X className="h-3 w-3" />
                     </button>
                   </span>
                 ))}
+
+                {/* Quick Add Existing Tag */}
+                {unlinkedTags.length > 0 && (
+                  <div className="w-36">
+                    <CustomSelect
+                      size="sm"
+                      value=""
+                      onChange={(val) => {
+                        if (val) linkTagMutation.mutate({ tagId: val });
+                      }}
+                      placeholder="+ 选择已有标签"
+                      options={[
+                        { value: '', label: '+ 选择已有标签' },
+                        ...unlinkedTags.map((t) => ({
+                          value: t.id,
+                          label: `#${t.name}`,
+                        })),
+                      ]}
+                    />
+                  </div>
+                )}
+
+                {/* Add New Tag input */}
                 <div className="flex items-center gap-1">
                   <input
                     type="text"
-                    placeholder="输入标签名..."
+                    placeholder="输入 #新标签..."
                     value={newTagName}
                     onChange={(e) => setNewTagName(e.target.value)}
                     onKeyDown={(e) => {
@@ -373,7 +326,7 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
                         linkTagMutation.mutate({ tagName: newTagName.trim() });
                       }
                     }}
-                    className="w-24 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-0.5 text-xs text-stone-700 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                    className="w-28 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-xs text-stone-700 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-rose-500"
                   />
                   {newTagName.trim() && (
                     <button
@@ -412,7 +365,7 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
                     rows={4}
                     value={noteValue}
                     onChange={(e) => setNoteValue(e.target.value)}
-                    placeholder="记录为什么保存这条素材，打算在哪个选题的哪个章节使用..."
+                    placeholder="记录为什么保存这条素材，输入 #标签 自动归档..."
                     className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 p-3 text-xs sm:text-sm leading-relaxed text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
                   />
                   <div className="flex justify-end gap-2">
@@ -433,7 +386,7 @@ export function ItemDetailModal({ itemId, isOpen, onClose }: ItemDetailModalProp
                   onClick={() => setEditingNote(true)}
                   className="p-3 rounded-xl border border-stone-200/70 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/60 text-xs sm:text-sm text-stone-700 dark:text-stone-300 leading-relaxed cursor-pointer hover:bg-stone-100/60 dark:hover:bg-stone-800/60 transition-colors whitespace-pre-wrap min-h-12"
                 >
-                  {item.description || <span className="text-stone-400 italic">点击添加备注，记录灵感与视频切入点...</span>}
+                  {item.description || <span className="text-stone-400 italic">点击添加备注，输入 #标签 自动归档...</span>}
                 </div>
               )}
             </div>

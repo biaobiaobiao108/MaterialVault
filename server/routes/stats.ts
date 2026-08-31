@@ -12,7 +12,6 @@ export async function handleStats(req: Request, url: URL): Promise<Response> {
   const archivedCount = (sqlite.prepare(`SELECT COUNT(*) as count FROM items WHERE organization_status = 'archived'`).get() as any).count;
   const favoriteCount = (sqlite.prepare(`SELECT COUNT(*) as count FROM items WHERE favorite = 1`).get() as any).count;
 
-  const totalTopics = (sqlite.prepare(`SELECT COUNT(*) as count FROM topics`).get() as any).count;
   const totalTags = (sqlite.prepare(`SELECT COUNT(*) as count FROM tags`).get() as any).count;
   const totalAssets = (sqlite.prepare(`SELECT COUNT(*) as count, COALESCE(SUM(file_size), 0) as totalBytes FROM assets`).get() as any);
 
@@ -25,7 +24,6 @@ export async function handleStats(req: Request, url: URL): Promise<Response> {
     organizedCount,
     archivedCount,
     favoriteCount,
-    totalTopics,
     totalTags,
     assetCount: totalAssets.count,
     assetBytes: totalAssets.totalBytes,

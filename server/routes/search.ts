@@ -10,7 +10,6 @@ export async function handleSearch(req: Request, url: URL): Promise<Response> {
   const q = url.searchParams.get('q') || undefined;
   const type = url.searchParams.get('type') || undefined;
   const status = (url.searchParams.get('status') as any) || undefined;
-  const topicId = url.searchParams.get('topicId') || undefined;
   const tagId = url.searchParams.get('tagId') || undefined;
   const domain = url.searchParams.get('domain') || undefined;
   const favoriteParam = url.searchParams.get('favorite');
@@ -26,7 +25,6 @@ export async function handleSearch(req: Request, url: URL): Promise<Response> {
     q,
     type,
     organizationStatus: status,
-    topicId,
     tagId,
     domain,
     favorite,
@@ -37,21 +35,11 @@ export async function handleSearch(req: Request, url: URL): Promise<Response> {
   });
 
   const itemIds = results.map((r) => r.id);
-  let topicsByItem: Record<string, any[]> = {};
   let tagsByItem: Record<string, any[]> = {};
   let assetsByItem: Record<string, any[]> = {};
 
   if (itemIds.length > 0) {
     const placeholders = itemIds.map(() => '?').join(',');
-    const topicLinks = sqlite
-      .prepare(
-        `SELECT it.item_id, t.* FROM topics t JOIN item_topics it ON it.topic_id = t.id WHERE it.item_id IN (${placeholders})`
-      )
-      .all(...itemIds) as any[];
-    topicLinks.forEach((t) => {
-      if (!topicsByItem[t.item_id]) topicsByItem[t.item_id] = [];
-      topicsByItem[t.item_id].push({ id: t.id, title: t.title, status: t.status });
-    });
 
     const tagLinks = sqlite
       .prepare(
@@ -76,7 +64,6 @@ export async function handleSearch(req: Request, url: URL): Promise<Response> {
 
   const enriched = results.map((r) => ({
     ...r,
-    topics: topicsByItem[r.id] || [],
     tags: tagsByItem[r.id] || [],
     assets: assetsByItem[r.id] || [],
   }));

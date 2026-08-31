@@ -1,24 +1,66 @@
 import { z } from 'zod';
 import crypto from 'crypto';
 import { db, sqlite } from '../db/db';
-import { items, itemTopics, itemTags, assets, ingestionLogs, tags } from '../db/schema';
-import { eq, desc, inArray, and } from 'drizzle-orm';
+import { items, itemTags, assets, ingestionLogs, tags } from '../db/schema';
+import { eq, desc, inArray } from 'drizzle-orm';
 import { normalizeUrl, processUrlItem } from '../services/capture';
 import { json, parseJsonBody } from '../utils';
 
-// Helper to fetch item with associated topics, tags, and assets
+// Helper to extract hashtags from any text: #标签名 #tech #ai_123
+export function extractHashtags(text: string): string[] {
+  if (!text) return [];
+  const matches = text.match(/(?:^|\s)#([\p{L}\p{N}_-]+)/gu);
+  if (!matches) return [];
+
+  const tagSet = new Set<string>();
+  for (const m of matches) {
+    const cleaned = m.trim().replace(/^#/, '').trim();
+    if (cleaned.length > 0) {
+      tagSet.add(cleaned);
+    }
+  }
+  return Array.from(tagSet);
+}
+
+// Helper to ensure tag exists and link to item
+export async function syncItemTags(itemId: string, explicitTagIds: string[] = [], textToScan = '') {
+  const extractedTagNames = extractHashtags(textToScan);
+  const now = Date.now();
+  const finalTagIds = new Set<string>(explicitTagIds.filter(Boolean));
+
+  for (const name of extractedTagNames) {
+    let existing = await db.query.tags.findFirst({
+      where: eq(tags.name, name),
+    });
+
+    if (!existing) {
+      const newTagId = crypto.randomUUID();
+      await db.insert(tags).values({
+        id: newTagId,
+        name,
+        color: 'stone',
+        createdAt: now,
+      });
+      finalTagIds.add(newTagId);
+    } else {
+      finalTagIds.add(existing.id);
+    }
+  }
+
+  // Insert links
+  for (const tagId of finalTagIds) {
+    try {
+      await db.insert(itemTags).values({ itemId, tagId, createdAt: now });
+    } catch (_) {}
+  }
+}
+
+// Helper to fetch item with associated tags, assets, and logs
 export async function getFullItem(id: string) {
   const item = await db.query.items.findFirst({
     where: eq(items.id, id),
   });
   if (!item) return null;
-
-  // Fetch topics
-  const topicList = sqlite
-    .prepare(
-      `SELECT t.* FROM topics t JOIN item_topics it ON it.topic_id = t.id WHERE it.item_id = ?`
-    )
-    .all(id);
 
   // Fetch tags
   const tagList = sqlite
@@ -42,7 +84,6 @@ export async function getFullItem(id: string) {
   return {
     ...item,
     favorite: Boolean(item.favorite),
-    topics: topicList,
     tags: tagList,
     assets: assetList,
     logs: logList,
@@ -59,7 +100,6 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
       url: z.string().min(1),
       title: z.string().optional(),
       description: z.string().optional(),
-      topicIds: z.array(z.string()).optional(),
       tagIds: z.array(z.string()).optional(),
     });
 
@@ -68,7 +108,7 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
       return json({ error: '无效请求参数', details: parsed.error.format() }, 400);
     }
 
-    const { url: rawUrl, title, description, topicIds, tagIds } = parsed.data;
+    const { url: rawUrl, title, description, tagIds } = parsed.data;
     const { url: normalized, domain } = normalizeUrl(rawUrl);
 
     // Check duplicate URL
@@ -77,13 +117,7 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
     });
 
     if (existing) {
-      if (topicIds && topicIds.length > 0) {
-        for (const tId of topicIds) {
-          try {
-            await db.insert(itemTopics).values({ itemId: existing.id, topicId: tId, createdAt: Date.now() });
-          } catch (_) {}
-        }
-      }
+      await syncItemTags(existing.id, tagIds || [], `${title || ''} ${description || ''}`);
       const full = await getFullItem(existing.id);
       return json({ item: full, isDuplicate: true }, 200);
     }
@@ -110,23 +144,8 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
 
     await db.insert(items).values(newItem);
 
-    // Link topics
-    if (topicIds && topicIds.length > 0) {
-      for (const tId of topicIds) {
-        try {
-          await db.insert(itemTopics).values({ itemId: id, topicId: tId, createdAt: now });
-        } catch (_) {}
-      }
-    }
-
-    // Link tags
-    if (tagIds && tagIds.length > 0) {
-      for (const tagId of tagIds) {
-        try {
-          await db.insert(itemTags).values({ itemId: id, tagId, createdAt: now });
-        } catch (_) {}
-      }
-    }
+    // Link & extract tags from text
+    await syncItemTags(id, tagIds || [], `${title || ''} ${description || ''}`);
 
     setTimeout(() => {
       processUrlItem(id, normalized).catch((err) => console.error('Capture pipeline error:', err));
@@ -142,7 +161,6 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
     const schema = z.object({
       title: z.string().optional(),
       content: z.string().min(1),
-      topicIds: z.array(z.string()).optional(),
       tagIds: z.array(z.string()).optional(),
     });
 
@@ -151,7 +169,7 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
       return json({ error: '请填写备忘内容', details: parsed.error.format() }, 400);
     }
 
-    const { title, content, topicIds, tagIds } = parsed.data;
+    const { title, content, tagIds } = parsed.data;
     const id = crypto.randomUUID();
     const now = Date.now();
 
@@ -178,21 +196,8 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
 
     await db.insert(items).values(newItem);
 
-    if (topicIds && topicIds.length > 0) {
-      for (const tId of topicIds) {
-        try {
-          await db.insert(itemTopics).values({ itemId: id, topicId: tId, createdAt: now });
-        } catch (_) {}
-      }
-    }
-
-    if (tagIds && tagIds.length > 0) {
-      for (const tagId of tagIds) {
-        try {
-          await db.insert(itemTags).values({ itemId: id, tagId, createdAt: now });
-        } catch (_) {}
-      }
-    }
+    // Auto extract #tags from entire content & title
+    await syncItemTags(id, tagIds || [], `${derivedTitle} ${content}`);
 
     const full = await getFullItem(id);
     return json({ item: full }, 201);
@@ -203,9 +208,8 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
     const body = await parseJsonBody(req);
     const schema = z.object({
       itemIds: z.array(z.string()).min(1),
-      action: z.enum(['set_status', 'add_topic', 'remove_topic', 'add_tag', 'remove_tag', 'favorite', 'unfavorite', 'delete']),
+      action: z.enum(['set_status', 'add_tag', 'remove_tag', 'favorite', 'unfavorite', 'delete']),
       status: z.enum(['inbox', 'organized', 'archived']).optional(),
-      topicId: z.string().optional(),
       tagId: z.string().optional(),
     });
 
@@ -214,7 +218,7 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
       return json({ error: '无效批量请求参数' }, 400);
     }
 
-    const { itemIds, action, status, topicId, tagId } = parsed.data;
+    const { itemIds, action, status, tagId } = parsed.data;
 
     switch (action) {
       case 'set_status':
@@ -231,20 +235,6 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
       case 'delete':
         await db.delete(items).where(inArray(items.id, itemIds));
         break;
-      case 'add_topic':
-        if (topicId) {
-          for (const itemId of itemIds) {
-            try {
-              await db.insert(itemTopics).values({ itemId, topicId, createdAt: Date.now() });
-            } catch (_) {}
-          }
-        }
-        break;
-      case 'remove_topic':
-        if (topicId) {
-          await db.delete(itemTopics).where(and(inArray(itemTopics.itemId, itemIds), eq(itemTopics.topicId, topicId)));
-        }
-        break;
       case 'add_tag':
         if (tagId) {
           for (const itemId of itemIds) {
@@ -256,7 +246,7 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
         break;
       case 'remove_tag':
         if (tagId) {
-          await db.delete(itemTags).where(and(inArray(itemTags.itemId, itemIds), eq(itemTags.tagId, tagId)));
+          await db.delete(itemTags).where(inArray(itemTags.itemId, itemIds));
         }
         break;
     }
@@ -280,32 +270,7 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
     return json({ message: '重新归档任务已提交' });
   }
 
-  // 5. Link / Unlink Topic: POST/DELETE /api/items/:id/topics...
-  if (subPath.includes('/topics')) {
-    const parts = subPath.split('/topics');
-    const itemId = parts[0];
-    const rest = parts[1] ? parts[1].replace(/^\//, '') : '';
-
-    if (method === 'POST') {
-      const body = await parseJsonBody(req);
-      const topicId = body?.topicId;
-      if (!topicId) return json({ error: '缺少 topicId' }, 400);
-      try {
-        await db.insert(itemTopics).values({ itemId, topicId, createdAt: Date.now() });
-      } catch (_) {}
-      const full = await getFullItem(itemId);
-      return json({ item: full });
-    }
-
-    if (method === 'DELETE' && rest) {
-      const topicId = rest;
-      await db.delete(itemTopics).where(and(eq(itemTopics.itemId, itemId), eq(itemTopics.topicId, topicId)));
-      const full = await getFullItem(itemId);
-      return json({ item: full });
-    }
-  }
-
-  // 6. Link / Unlink Tag: POST/DELETE /api/items/:id/tags...
+  // 5. Link / Unlink Tag: POST/DELETE /api/items/:id/tags...
   if (subPath.includes('/tags')) {
     const parts = subPath.split('/tags');
     const itemId = parts[0];
@@ -317,14 +282,15 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
       const tagName = body?.tagName;
 
       if (!targetTagId && tagName) {
-        const existing = await db.query.tags.findFirst({ where: eq(tags.name, tagName.trim()) });
+        const cleanedName = tagName.trim().replace(/^#/, '');
+        const existing = await db.query.tags.findFirst({ where: eq(tags.name, cleanedName) });
         if (existing) {
           targetTagId = existing.id;
         } else {
           targetTagId = crypto.randomUUID();
           await db.insert(tags).values({
             id: targetTagId,
-            name: tagName.trim(),
+            name: cleanedName,
             color: 'stone',
             createdAt: Date.now(),
           });
@@ -343,20 +309,21 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
 
     if (method === 'DELETE' && rest) {
       const tagId = rest;
+      const { and } = await import('drizzle-orm');
       await db.delete(itemTags).where(and(eq(itemTags.itemId, itemId), eq(itemTags.tagId, tagId)));
       const full = await getFullItem(itemId);
       return json({ item: full });
     }
   }
 
-  // 7. Get single Item: GET /api/items/:id
+  // 6. Get single Item: GET /api/items/:id
   if (method === 'GET' && subPath) {
     const item = await getFullItem(subPath);
     if (!item) return json({ error: '素材不存在' }, 404);
     return json({ item });
   }
 
-  // 8. Update Item: PATCH /api/items/:id
+  // 7. Update Item: PATCH /api/items/:id
   if (method === 'PATCH' && subPath) {
     const body = await parseJsonBody(req);
     const schema = z.object({
@@ -378,22 +345,28 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
     };
 
     await db.update(items).set(updates).where(eq(items.id, subPath));
+
+    // Auto extract #tags from updated title/description/content
+    const textToScan = `${parsed.data.title || ''} ${parsed.data.description || ''} ${parsed.data.contentText || ''}`;
+    if (textToScan.includes('#')) {
+      await syncItemTags(subPath, [], textToScan);
+    }
+
     const full = await getFullItem(subPath);
     return json({ item: full });
   }
 
-  // 9. Delete Item: DELETE /api/items/:id
+  // 8. Delete Item: DELETE /api/items/:id
   if (method === 'DELETE' && subPath) {
     await db.delete(items).where(eq(items.id, subPath));
     return json({ success: true, id: subPath });
   }
 
-  // 10. List items: GET /api/items
+  // 9. List items: GET /api/items
   if (method === 'GET' && !subPath) {
     const status = url.searchParams.get('status') as any;
     const type = url.searchParams.get('type');
     const favorite = url.searchParams.get('favorite');
-    const topicId = url.searchParams.get('topicId');
     const tagId = url.searchParams.get('tagId');
     const limit = parseInt(url.searchParams.get('limit') || '50', 10);
     const offset = parseInt(url.searchParams.get('offset') || '0', 10);
@@ -402,12 +375,6 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
     const joins: string[] = [];
     const where: string[] = [];
     const params: any[] = [];
-
-    if (topicId) {
-      joins.push('JOIN item_topics it ON it.item_id = i.id');
-      where.push('it.topic_id = ?');
-      params.push(topicId);
-    }
 
     if (tagId) {
       joins.push('JOIN item_tags itg ON itg.item_id = i.id');
@@ -438,21 +405,11 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
 
     const rawItems = sqlite.prepare(querySql).all(...params) as any[];
     const itemIds = rawItems.map((r) => r.id);
-    let topicsByItem: Record<string, any[]> = {};
     let tagsByItem: Record<string, any[]> = {};
     let assetsByItem: Record<string, any[]> = {};
 
     if (itemIds.length > 0) {
       const placeholders = itemIds.map(() => '?').join(',');
-      const topicLinks = sqlite
-        .prepare(
-          `SELECT it.item_id, t.* FROM topics t JOIN item_topics it ON it.topic_id = t.id WHERE it.item_id IN (${placeholders})`
-        )
-        .all(...itemIds) as any[];
-      topicLinks.forEach((t) => {
-        if (!topicsByItem[t.item_id]) topicsByItem[t.item_id] = [];
-        topicsByItem[t.item_id].push({ id: t.id, title: t.title, status: t.status });
-      });
 
       const tagLinks = sqlite
         .prepare(
@@ -490,7 +447,6 @@ export async function handleItems(req: Request, url: URL, subPath: string): Prom
       capturedAt: r.captured_at,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
-      topics: topicsByItem[r.id] || [],
       tags: tagsByItem[r.id] || [],
       assets: assetsByItem[r.id] || [],
     }));

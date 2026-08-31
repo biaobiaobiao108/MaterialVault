@@ -1,4 +1,4 @@
-import { Item, Topic, Tag, VaultStats, OrganizationStatus, ItemType } from './types';
+import { Item, Tag, VaultStats, SearchParams } from './types';
 
 const API_BASE = '/api';
 
@@ -12,7 +12,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   });
 
   if (!res.ok) {
-    let errorMsg = `请求失败 (${res.status})`;
+    let errorMsg = `Request failed: ${res.status} ${res.statusText}`;
     try {
       const errData = await res.json();
       if (errData.error) errorMsg = errData.error;
@@ -20,126 +20,104 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     throw new Error(errorMsg);
   }
 
-  return res.json();
+  return res.json() as Promise<T>;
 }
 
 export const api = {
+  // Stats
+  getStats: () => fetchJson<VaultStats>(`${API_BASE}/stats`),
+
   // Items
-  getItems: async (params?: {
-    status?: OrganizationStatus;
-    type?: ItemType;
-    topicId?: string;
-    tagId?: string;
-    favorite?: boolean;
-    limit?: number;
-    offset?: number;
-  }): Promise<{ items: Item[] }> => {
-    const searchParams = new URLSearchParams();
-    if (params?.status) searchParams.set('status', params.status);
-    if (params?.type) searchParams.set('type', params.type);
-    if (params?.topicId) searchParams.set('topicId', params.topicId);
-    if (params?.tagId) searchParams.set('tagId', params.tagId);
-    if (params?.favorite !== undefined) searchParams.set('favorite', String(params.favorite));
-    if (params?.limit) searchParams.set('limit', String(params.limit));
-    if (params?.offset) searchParams.set('offset', String(params.offset));
-
-    return fetchJson(`${API_BASE}/items?${searchParams.toString()}`);
+  getItems: (params?: { status?: string; type?: string; favorite?: boolean; tagId?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.type) query.set('type', params.type);
+    if (params?.favorite) query.set('favorite', 'true');
+    if (params?.tagId) query.set('tagId', params.tagId);
+    return fetchJson<{ items: Item[] }>(`${API_BASE}/items?${query.toString()}`);
   },
 
-  getItem: async (id: string): Promise<{ item: Item }> => {
-    return fetchJson(`${API_BASE}/items/${id}`);
-  },
+  getItem: (id: string) => fetchJson<{ item: Item }>(`${API_BASE}/items/${id}`),
 
-  captureUrl: async (data: {
-    url: string;
-    title?: string;
-    description?: string;
-    topicIds?: string[];
-    tagIds?: string[];
-  }): Promise<{ item: Item; isDuplicate?: boolean }> => {
-    return fetchJson(`${API_BASE}/items/url`, {
+  captureUrl: (data: { url: string; title?: string; description?: string; tagIds?: string[] }) =>
+    fetchJson<{ item: Item; isDuplicate: boolean }>(`${API_BASE}/items/url`, {
       method: 'POST',
       body: JSON.stringify(data),
-    });
-  },
+    }),
 
-  createNote: async (data: {
-    title?: string;
-    content: string;
-    topicIds?: string[];
-    tagIds?: string[];
-  }): Promise<{ item: Item }> => {
-    return fetchJson(`${API_BASE}/items/note`, {
+  createNote: (data: { title?: string; content: string; tagIds?: string[] }) =>
+    fetchJson<{ item: Item }>(`${API_BASE}/items/note`, {
       method: 'POST',
       body: JSON.stringify(data),
-    });
-  },
+    }),
 
-  updateItem: async (
-    id: string,
-    data: {
-      title?: string;
-      description?: string;
-      contentText?: string;
-      organizationStatus?: OrganizationStatus;
-      favorite?: boolean;
-    }
-  ): Promise<{ item: Item }> => {
-    return fetchJson(`${API_BASE}/items/${id}`, {
+  updateItem: (id: string, updates: Partial<Item>) =>
+    fetchJson<{ item: Item }>(`${API_BASE}/items/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  },
+      body: JSON.stringify(updates),
+    }),
 
-  deleteItem: async (id: string): Promise<{ success: boolean; id: string }> => {
-    return fetchJson(`${API_BASE}/items/${id}`, {
+  deleteItem: (id: string) =>
+    fetchJson<{ success: boolean; id: string }>(`${API_BASE}/items/${id}`, {
       method: 'DELETE',
-    });
-  },
+    }),
 
-  retryIngestion: async (id: string): Promise<{ message: string }> => {
-    return fetchJson(`${API_BASE}/items/${id}/retry`, {
+  retryIngestion: (id: string) =>
+    fetchJson<{ message: string }>(`${API_BASE}/items/${id}/retry`, {
       method: 'POST',
-    });
-  },
+    }),
 
-  batchItems: async (data: {
+  batchAction: (data: {
     itemIds: string[];
-    action: 'set_status' | 'add_topic' | 'remove_topic' | 'add_tag' | 'remove_tag' | 'favorite' | 'unfavorite' | 'delete';
-    status?: OrganizationStatus;
-    topicId?: string;
+    action: 'set_status' | 'add_tag' | 'remove_tag' | 'favorite' | 'unfavorite' | 'delete';
+    status?: string;
     tagId?: string;
-  }): Promise<{ success: boolean; count: number }> => {
-    return fetchJson(`${API_BASE}/items/batch`, {
+  }) =>
+    fetchJson<{ success: boolean; count: number }>(`${API_BASE}/items/batch`, {
       method: 'POST',
       body: JSON.stringify(data),
-    });
-  },
+    }),
 
-  linkTopic: async (itemId: string, topicId: string): Promise<{ item: Item }> => {
-    return fetchJson(`${API_BASE}/items/${itemId}/topics`, {
+  // Tags
+  getTags: () => fetchJson<{ tags: Tag[] }>(`${API_BASE}/tags`),
+
+  createTag: (name: string, color?: string) =>
+    fetchJson<{ tag: Tag }>(`${API_BASE}/tags`, {
       method: 'POST',
-      body: JSON.stringify({ topicId }),
-    });
-  },
+      body: JSON.stringify({ name, color }),
+    }),
 
-  unlinkTopic: async (itemId: string, topicId: string): Promise<{ item: Item }> => {
-    return fetchJson(`${API_BASE}/items/${itemId}/topics/${topicId}`, {
+  deleteTag: (id: string) =>
+    fetchJson<{ success: boolean; id: string }>(`${API_BASE}/tags/${id}`, {
       method: 'DELETE',
-    });
-  },
+    }),
 
-  linkTag: async (itemId: string, tagData: { tagId?: string; tagName?: string }): Promise<{ item: Item }> => {
-    return fetchJson(`${API_BASE}/items/${itemId}/tags`, {
+  linkTag: (itemId: string, data: { tagId?: string; tagName?: string }) =>
+    fetchJson<{ item: Item }>(`${API_BASE}/items/${itemId}/tags`, {
       method: 'POST',
-      body: JSON.stringify(tagData),
-    });
-  },
+      body: JSON.stringify(data),
+    }),
 
-  unlinkTag: async (itemId: string, tagId: string): Promise<{ item: Item }> => {
-    return fetchJson(`${API_BASE}/items/${itemId}/tags/${tagId}`, {
+  unlinkTag: (itemId: string, tagId: string) =>
+    fetchJson<{ item: Item }>(`${API_BASE}/items/${itemId}/tags/${tagId}`, {
       method: 'DELETE',
-    });
+    }),
+
+  // Search
+  search: (params: SearchParams) => {
+    const query = new URLSearchParams();
+    if (params.q) query.set('q', params.q);
+    if (params.type) query.set('type', params.type);
+    if (params.status) query.set('status', params.status);
+    if (params.tagId) query.set('tagId', params.tagId);
+    if (params.domain) query.set('domain', params.domain);
+    if (params.favorite !== undefined) query.set('favorite', String(params.favorite));
+    if (params.startDate) query.set('startDate', String(params.startDate));
+    if (params.endDate) query.set('endDate', String(params.endDate));
+    if (params.limit) query.set('limit', String(params.limit));
+    if (params.offset) query.set('offset', String(params.offset));
+
+    return fetchJson<{ items: Item[]; count: number }>(`${API_BASE}/search?${query.toString()}`);
   },
 
   // Uploads
@@ -148,105 +126,16 @@ export const api = {
       method: 'POST',
       body: formData,
     });
+
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || '上传失败');
+      let errorMsg = `Upload failed: ${res.status}`;
+      try {
+        const err = await res.json();
+        if (err.error) errorMsg = err.error;
+      } catch (_) {}
+      throw new Error(errorMsg);
     }
+
     return res.json();
-  },
-
-  // Topics
-  getTopics: async (status?: 'active' | 'archived'): Promise<{ topics: Topic[] }> => {
-    const q = status ? `?status=${status}` : '';
-    return fetchJson(`${API_BASE}/topics${q}`);
-  },
-
-  getTopic: async (id: string): Promise<{ topic: Topic }> => {
-    return fetchJson(`${API_BASE}/topics/${id}`);
-  },
-
-  createTopic: async (data: { title: string; description?: string; externalTopicId?: string }): Promise<{ topic: Topic }> => {
-    return fetchJson(`${API_BASE}/topics`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  updateTopic: async (
-    id: string,
-    data: { title?: string; description?: string; status?: 'active' | 'archived'; externalTopicId?: string | null }
-  ): Promise<{ topic: Topic }> => {
-    return fetchJson(`${API_BASE}/topics/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  },
-
-  deleteTopic: async (id: string): Promise<{ success: boolean; id: string }> => {
-    return fetchJson(`${API_BASE}/topics/${id}`, {
-      method: 'DELETE',
-    });
-  },
-
-  getTopicExport: async (id: string, format: 'markdown' | 'excalidraw' = 'markdown'): Promise<any> => {
-    const res = await fetch(`${API_BASE}/topics/${id}/export?format=${format}`);
-    if (!res.ok) throw new Error('导出失败');
-    if (format === 'markdown') {
-      return res.text();
-    }
-    return res.json();
-  },
-
-  // Tags
-  getTags: async (): Promise<{ tags: Tag[] }> => {
-    return fetchJson(`${API_BASE}/tags`);
-  },
-
-  createTag: async (data: { name: string; color?: string }): Promise<{ tag: Tag }> => {
-    return fetchJson(`${API_BASE}/tags`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  deleteTag: async (id: string): Promise<{ success: boolean; id: string }> => {
-    return fetchJson(`${API_BASE}/tags/${id}`, {
-      method: 'DELETE',
-    });
-  },
-
-  // Search
-  search: async (params: {
-    q?: string;
-    type?: ItemType;
-    status?: OrganizationStatus;
-    topicId?: string;
-    tagId?: string;
-    domain?: string;
-    favorite?: boolean;
-    startDate?: number;
-    endDate?: number;
-    limit?: number;
-    offset?: number;
-  }): Promise<{ items: Item[]; count: number }> => {
-    const searchParams = new URLSearchParams();
-    if (params.q) searchParams.set('q', params.q);
-    if (params.type) searchParams.set('type', params.type);
-    if (params.status) searchParams.set('status', params.status);
-    if (params.topicId) searchParams.set('topicId', params.topicId);
-    if (params.tagId) searchParams.set('tagId', params.tagId);
-    if (params.domain) searchParams.set('domain', params.domain);
-    if (params.favorite !== undefined) searchParams.set('favorite', String(params.favorite));
-    if (params.startDate) searchParams.set('startDate', String(params.startDate));
-    if (params.endDate) searchParams.set('endDate', String(params.endDate));
-    if (params.limit) searchParams.set('limit', String(params.limit));
-    if (params.offset) searchParams.set('offset', String(params.offset));
-
-    return fetchJson(`${API_BASE}/search?${searchParams.toString()}`);
-  },
-
-  // Stats
-  getStats: async (): Promise<VaultStats> => {
-    return fetchJson(`${API_BASE}/stats`);
   },
 };

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   CheckCircle2,
-  FolderKanban,
   Tag as TagIcon,
   Archive,
   Star,
@@ -12,7 +11,6 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { Button } from './ui/Button';
 import { ConfirmDialog } from './ui/ConfirmDialog';
-import { cn } from '../lib/utils';
 
 export interface BatchActionBarProps {
   selectedIds: string[];
@@ -28,13 +26,7 @@ export function BatchActionBar({
   loading = false,
 }: BatchActionBarProps) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [topicDropdownOpen, setTopicDropdownOpen] = useState(false);
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
-
-  const { data: topicsData } = useQuery({
-    queryKey: ['topics'],
-    queryFn: () => api.getTopics('active'),
-  });
 
   const { data: tagsData } = useQuery({
     queryKey: ['tags'],
@@ -76,37 +68,6 @@ export function BatchActionBar({
             <span className="hidden md:inline">已整理</span>
           </Button>
 
-          {/* Associate Topic Dropdown */}
-          <div className="relative">
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={loading}
-              onClick={() => setTopicDropdownOpen(!topicDropdownOpen)}
-            >
-              <FolderKanban className="h-3.5 w-3.5 text-indigo-500" />
-              <span>关联选题</span>
-            </Button>
-            {topicDropdownOpen && (
-              <div className="absolute bottom-full mb-2 left-0 w-48 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-1 shadow-card z-50">
-                <div className="p-1.5 text-[11px] font-bold text-stone-400">选择要关联的选题</div>
-                {topicsData?.topics.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => {
-                      onBatchAction('add_topic', { topicId: t.id });
-                      setTopicDropdownOpen(false);
-                    }}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 truncate"
-                  >
-                    {t.title}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Associate Tag Dropdown */}
           <div className="relative">
             <Button
@@ -137,6 +98,17 @@ export function BatchActionBar({
               </div>
             )}
           </div>
+
+          {/* Favorite */}
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={loading}
+            onClick={() => onBatchAction('favorite')}
+            title="批量收藏"
+          >
+            <Star className="h-3.5 w-3.5 text-amber-500" />
+          </Button>
 
           {/* Archive */}
           <Button
