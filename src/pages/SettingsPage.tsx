@@ -1,5 +1,5 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useTheme, ThemePreference } from '../lib/theme';
 import { formatBytes } from '../lib/utils';
@@ -15,15 +15,73 @@ import {
   Laptop,
   Download,
   Command,
+  Tags,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { useToast } from '../components/ui/Toast';
 
 export function SettingsPage() {
   const { preference, setPreference, isDark } = useTheme();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  const [newTagName, setNewTagName] = useState('');
+  const [editingTag, setEditingTag] = useState<{ id: string; name: string } | null>(null);
+  const [editTagNameValue, setEditTagNameValue] = useState('');
+  const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
 
   const { data: stats } = useQuery({
     queryKey: ['vault-stats'],
     queryFn: api.getStats,
+  });
+
+  const { data: tagsData } = useQuery({
+    queryKey: ['tags'],
+    queryFn: api.getTags,
+  });
+
+  // Create Tag Mutation
+  const createTagMutation = useMutation({
+    mutationFn: (name: string) => api.createTag(name),
+    onSuccess: () => {
+      toast.success('标签创建成功');
+      setNewTagName('');
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
+    },
+    onError: (err: any) => toast.error(err.message || '创建标签失败'),
+  });
+
+  // Update/Rename Tag Mutation
+  const updateTagMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => api.updateTag(id, { name }),
+    onSuccess: () => {
+      toast.success('标签重命名成功');
+      setEditingTag(null);
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
+    },
+    onError: (err: any) => toast.error(err.message || '重命名失败'),
+  });
+
+  // Delete Tag Mutation
+  const deleteTagMutation = useMutation({
+    mutationFn: (id: string) => api.deleteTag(id),
+    onSuccess: () => {
+      toast.success('标签已删除');
+      setDeletingTagId(null);
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
+    },
+    onError: (err: any) => toast.error(err.message || '删除标签失败'),
   });
 
   const themeOptions: { id: ThemePreference; title: string; desc: string; icon: React.ReactNode }[] = [
@@ -51,8 +109,10 @@ export function SettingsPage() {
     { key: 'Ctrl + K / /', desc: '快速激活全文检索与多维过滤' },
     { key: 'Ctrl + V (全局)', desc: '页面任意处粘贴链接、备忘或截图，自动激活收件箱保存' },
     { key: 'Ctrl + Enter', desc: '在输入框中快速提交备忘/素材' },
-    { key: '#标签名', desc: '在文本中任意位置输入或粘贴，自动生成并关联标签' },
+    { key: '#标签名', desc: '在文本中任意位置输入或粘贴，自动弹出补全并关联标签' },
   ];
+
+  const tags = tagsData?.tags || [];
 
   return (
     <div className="space-y-6">
@@ -63,7 +123,7 @@ export function SettingsPage() {
             <Settings className="h-4.5 w-4.5" />
           </span>
           <h1 className="min-w-0 text-lg sm:text-xl font-bold leading-tight tracking-tight text-stone-900 dark:text-stone-100">
-            设置与数据统计
+            设置与系统管理
           </h1>
         </div>
       </header>
@@ -88,8 +148,93 @@ export function SettingsPage() {
         </div>
       </section>
 
+      {/* Tag Management Hub */}
+      <section className="space-y-3 pt-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+            <Tags className="h-4 w-4 text-rose-500" />
+            <span>标签管理中心</span>
+            <span className="text-xs font-mono font-normal text-stone-400">
+              ({tags.length} 个标签)
+            </span>
+          </h2>
+        </div>
+
+        <div className="p-4 sm:p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-2xs space-y-4">
+          {/* Create new tag input bar */}
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newTagName.trim()) {
+                  e.preventDefault();
+                  createTagMutation.mutate(newTagName.trim());
+                }
+              }}
+              placeholder="输入 #新标签名称..."
+              className="flex-1 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800 px-3 py-2 text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
+            />
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!newTagName.trim()}
+              loading={createTagMutation.isPending}
+              onClick={() => createTagMutation.mutate(newTagName.trim())}
+              className="gap-1 text-xs"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>添加标签</span>
+            </Button>
+          </div>
+
+          {/* Tags List */}
+          {tags.length === 0 ? (
+            <p className="text-xs text-stone-400 text-center py-4">暂无标签，在输入框输入 #标签名 或点击上方创建</p>
+          ) : (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {tags.map((tag) => (
+                <div
+                  key={tag.id}
+                  className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-200/80 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-800/60 text-xs text-stone-800 dark:text-stone-200 transition-colors hover:border-rose-500/40"
+                >
+                  <span className="font-semibold text-rose-600 dark:text-rose-400">#{tag.name}</span>
+                  <span className="text-[10px] font-mono text-stone-400 tabular-nums bg-stone-200/70 dark:bg-stone-700 px-1.5 py-0.2 rounded-md">
+                    {tag.itemCount || 0}
+                  </span>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 ml-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingTag(tag);
+                        setEditTagNameValue(tag.name);
+                      }}
+                      className="p-0.5 text-stone-400 hover:text-rose-600 rounded"
+                      title="重命名标签"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingTagId(tag.id)}
+                      className="p-0.5 text-stone-400 hover:text-red-500 rounded"
+                      title="删除标签"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Theme Settings Section */}
-      <section className="space-y-3">
+      <section className="space-y-3 pt-2">
         <h2 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
           <Palette className="h-4 w-4 text-rose-500" />
           <span>外观与深浅色模式</span>
@@ -262,6 +407,61 @@ export function SettingsPage() {
           • <strong>SQLite FTS5 全文索引</strong>：零外部依赖，毫秒级检索半年前收集的所有网页与正文证据。
         </p>
       </section>
+
+      {/* Rename Tag Modal */}
+      <Modal
+        isOpen={Boolean(editingTag)}
+        onClose={() => setEditingTag(null)}
+        maxWidth="md"
+        showClose={true}
+      >
+        <div className="space-y-4">
+          <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
+            重命名标签
+          </h3>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-stone-500">标签名称</label>
+            <input
+              type="text"
+              value={editTagNameValue}
+              onChange={(e) => setEditTagNameValue(e.target.value)}
+              placeholder="输入新的标签名..."
+              className="w-full rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 p-2.5 text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" size="sm" onClick={() => setEditingTag(null)}>
+              取消
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!editTagNameValue.trim()}
+              loading={updateTagMutation.isPending}
+              onClick={() => {
+                if (editingTag && editTagNameValue.trim()) {
+                  updateTagMutation.mutate({ id: editingTag.id, name: editTagNameValue.trim() });
+                }
+              }}
+            >
+              保存修改
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Tag Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(deletingTagId)}
+        onClose={() => setDeletingTagId(null)}
+        onConfirm={() => {
+          if (deletingTagId) deleteTagMutation.mutate(deletingTagId);
+        }}
+        title="确认删除该标签？"
+        message="删除后标签将从所有已关联的素材中解绑，但素材本体不受影响。"
+        confirmText="确认删除"
+        variant="danger"
+      />
     </div>
   );
 }

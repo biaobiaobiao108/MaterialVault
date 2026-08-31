@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { ItemCard } from '../components/ItemCard';
@@ -12,11 +12,12 @@ import {
   RefreshCw,
   Star,
   X,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 export function SearchPage() {
   const [query, setQuery] = useState('');
-  const [activeQuery, setActiveQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [type, setType] = useState<string>('');
   const [tagId, setTagId] = useState<string>('');
   const [domain, setDomain] = useState<string>('');
@@ -27,6 +28,28 @@ export function SearchPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
+
+  // Initialize from URL search params on load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const qParam = params.get('q');
+    const tagParam = params.get('tagId');
+    const typeParam = params.get('type');
+    if (qParam) {
+      setQuery(qParam);
+      setDebouncedQuery(qParam);
+    }
+    if (tagParam) setTagId(tagParam);
+    if (typeParam) setType(typeParam);
+  }, []);
+
+  // 250ms debounced query update
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const { data: tagsData } = useQuery({
     queryKey: ['tags'],
@@ -39,7 +62,7 @@ export function SearchPage() {
   const { data: searchResults, isLoading } = useQuery({
     queryKey: [
       'search',
-      activeQuery,
+      debouncedQuery,
       type,
       tagId,
       domain,
@@ -50,7 +73,7 @@ export function SearchPage() {
     ],
     queryFn: () =>
       api.search({
-        q: activeQuery || undefined,
+        q: debouncedQuery || undefined,
         type: (type || undefined) as any,
         tagId: tagId || undefined,
         domain: domain || undefined,
@@ -61,14 +84,9 @@ export function SearchPage() {
       }),
   });
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setActiveQuery(query.trim());
-  };
-
   const handleClearFilters = () => {
     setQuery('');
-    setActiveQuery('');
+    setDebouncedQuery('');
     setType('');
     setTagId('');
     setDomain('');
@@ -78,8 +96,10 @@ export function SearchPage() {
     setEndDateStr('');
   };
 
+  const selectedTag = tagsData?.tags.find((t) => t.id === tagId);
+
   const hasActiveFilters =
-    Boolean(activeQuery) ||
+    Boolean(debouncedQuery) ||
     Boolean(type) ||
     Boolean(tagId) ||
     Boolean(domain) ||
@@ -114,39 +134,110 @@ export function SearchPage() {
           onClick={() => setShowFilters(!showFilters)}
           className="gap-1.5"
         >
-          <Filter className="h-4 w-4" />
-          <span>{showFilters ? '收起过滤' : '高级过滤'}</span>
+          <SlidersHorizontal className="h-4 w-4" />
+          <span>{showFilters ? '收起多维过滤' : '多维高级过滤'}</span>
         </Button>
       </header>
 
-      {/* Search Input Box */}
-      <form onSubmit={handleSearchSubmit} className="relative">
+      {/* Search Input Box with Live Debounced Icon */}
+      <div className="relative">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="输入关键词全文搜索（例如：良子 华哥、训练基地、Readability...）"
-          className="w-full rounded-2xl border border-stone-200/90 dark:border-stone-800 bg-white dark:bg-stone-900 pl-11 pr-24 py-3.5 text-sm sm:text-base text-stone-900 dark:text-stone-100 shadow-2xs placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+          placeholder="输入关键词全文搜索（即时联想，例如：良子 华哥、训练基地、Readability...）"
+          className="w-full rounded-2xl border border-stone-200/90 dark:border-stone-800 bg-white dark:bg-stone-900 pl-11 pr-20 py-3.5 text-sm sm:text-base text-stone-900 dark:text-stone-100 shadow-2xs placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
         />
         <SearchIcon className="absolute left-4 top-4 h-5 w-5 text-stone-400" />
-        <div className="absolute right-2.5 top-2 flex items-center gap-1">
-          {query && (
-            <button
-              type="button"
-              onClick={() => {
-                setQuery('');
-                setActiveQuery('');
-              }}
-              className="p-1.5 text-stone-400 hover:text-stone-600 rounded-lg"
-            >
-              <X className="h-4 w-4" />
-            </button>
+        {query && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery('');
+              setDebouncedQuery('');
+            }}
+            className="absolute right-3.5 top-3.5 p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-lg"
+            title="清空搜索词"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Active Filter Chips Bar */}
+      {hasActiveFilters && (
+        <div className="flex items-center gap-1.5 flex-wrap text-xs">
+          <span className="text-stone-400 font-mono text-[11px] mr-1">生效条件:</span>
+          {debouncedQuery && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 font-medium border border-rose-500/20">
+              <span>关键词: "{debouncedQuery}"</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('');
+                  setDebouncedQuery('');
+                }}
+                className="text-rose-400 hover:text-rose-600"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
           )}
-          <Button type="submit" variant="primary" size="sm" className="font-bold">
-            检索
-          </Button>
+
+          {type && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-medium">
+              <span>类型: {type}</span>
+              <button type="button" onClick={() => setType('')} className="text-stone-400 hover:text-stone-600">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+
+          {selectedTag && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 font-medium border border-rose-500/20">
+              <span>标签: #{selectedTag.name}</span>
+              <button type="button" onClick={() => setTagId('')} className="text-rose-400 hover:text-rose-600">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+
+          {status && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-medium">
+              <span>状态: {status}</span>
+              <button type="button" onClick={() => setStatus('')} className="text-stone-400 hover:text-stone-600">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+
+          {domain && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-medium">
+              <span>域名: {domain}</span>
+              <button type="button" onClick={() => setDomain('')} className="text-stone-400 hover:text-stone-600">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+
+          {favoriteOnly && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium border border-amber-500/20">
+              <span>仅看收藏</span>
+              <button type="button" onClick={() => setFavoriteOnly(false)} className="text-amber-400 hover:text-amber-600">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            className="text-[11px] text-stone-400 hover:text-rose-600 underline ml-1"
+          >
+            清空所有条件
+          </button>
         </div>
-      </form>
+      )}
 
       {/* Multi-dimension Filter Panel */}
       {showFilters && (
@@ -154,7 +245,7 @@ export function SearchPage() {
           <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-stone-800">
             <span className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
               <Filter className="h-3.5 w-3.5 text-rose-500" />
-              <span>多维条件过滤</span>
+              <span>多维高级过滤面板</span>
             </span>
             {hasActiveFilters && (
               <button

@@ -88,6 +88,12 @@ export const api = {
       body: JSON.stringify({ name, color }),
     }),
 
+  updateTag: (id: string, data: { name?: string; color?: string }) =>
+    fetchJson<{ tag: Tag }>(`${API_BASE}/tags/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
   deleteTag: (id: string) =>
     fetchJson<{ success: boolean; id: string }>(`${API_BASE}/tags/${id}`, {
       method: 'DELETE',

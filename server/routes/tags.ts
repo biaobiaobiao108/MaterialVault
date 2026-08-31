@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import crypto from 'crypto';
 import { db, sqlite } from '../db/db';
 import { tags } from '../db/schema';
 import { eq } from 'drizzle-orm';
@@ -36,7 +35,7 @@ export async function handleTags(req: Request, url: URL, subPath: string): Promi
       return json({ error: '标签名称不能为空' }, 400);
     }
 
-    const name = parsed.data.name.trim();
+    const name = parsed.data.name.trim().replace(/^#/, '');
     const existing = await db.query.tags.findFirst({ where: eq(tags.name, name) });
     if (existing) {
       return json({ tag: existing }, 200);
@@ -53,7 +52,34 @@ export async function handleTags(req: Request, url: URL, subPath: string): Promi
     return json({ tag: newTag }, 201);
   }
 
-  // 3. Delete Tag: DELETE /api/tags/:id
+  // 3. Update / Rename Tag: PATCH /api/tags/:id
+  if (method === 'PATCH' && subPath) {
+    const id = subPath;
+    const body = await parseJsonBody(req);
+    const schema = z.object({
+      name: z.string().min(1).optional(),
+      color: z.string().optional(),
+    });
+
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) {
+      return json({ error: '无效更新参数' }, 400);
+    }
+
+    const updates: any = {};
+    if (parsed.data.name) {
+      updates.name = parsed.data.name.trim().replace(/^#/, '');
+    }
+    if (parsed.data.color) {
+      updates.color = parsed.data.color;
+    }
+
+    await db.update(tags).set(updates).where(eq(tags.id, id));
+    const updated = await db.query.tags.findFirst({ where: eq(tags.id, id) });
+    return json({ tag: updated });
+  }
+
+  // 4. Delete Tag: DELETE /api/tags/:id
   if (method === 'DELETE' && subPath) {
     const id = subPath;
     await db.delete(tags).where(eq(tags.id, id));

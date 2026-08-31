@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   Link2,
   FileText,
@@ -6,6 +6,8 @@ import {
   Paperclip,
   Hash,
   X,
+  Globe,
+  Sparkles,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -18,6 +20,8 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
   const [content, setContent] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedTagId, setSelectedTagId] = useState<string>('');
+  const [hashtagQuery, setHashtagQuery] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -30,7 +34,7 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
   });
 
   // Global paste handler to automatically capture when pasting anywhere on page
-  React.useEffect(() => {
+  useEffect(() => {
     const handleGlobalPaste = (e: ClipboardEvent) => {
       const activeEl = document.activeElement as HTMLElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
@@ -79,7 +83,24 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
     return Array.from(set);
   }, [content]);
 
+  // Autocomplete matching tags based on cursor position
+  const autocompleteSuggestions = useMemo(() => {
+    if (hashtagQuery === null || !tagsData?.tags) return [];
+    const query = hashtagQuery.toLowerCase();
+    return tagsData.tags
+      .filter((t) => t.name.toLowerCase().includes(query) && !extractedTags.includes(t.name))
+      .slice(0, 6);
+  }, [hashtagQuery, tagsData, extractedTags]);
+
   const isUrl = /^https?:\/\/[^\s]+$/i.test(content.trim());
+  const urlDomain = useMemo(() => {
+    if (!isUrl) return null;
+    try {
+      return new URL(content.trim()).hostname.replace(/^www\./, '');
+    } catch (_) {
+      return null;
+    }
+  }, [content, isUrl]);
 
   // URL Capture Mutation
   const urlMutation = useMutation({
@@ -92,6 +113,7 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
       }
       setContent('');
       setSelectedTagId('');
+      setHashtagQuery(null);
       queryClient.invalidateQueries({ queryKey: ['items'] });
       queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
@@ -109,6 +131,7 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
       toast.success('备忘已保存至 Inbox', '记录成功');
       setContent('');
       setSelectedTagId('');
+      setHashtagQuery(null);
       queryClient.invalidateQueries({ queryKey: ['items'] });
       queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['vault-stats'] });
@@ -154,7 +177,68 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
     }
   };
 
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    const cursorPos = e.target.selectionStart;
+    setContent(val);
+
+    // Detect if cursor is directly after a #tag
+    const textBeforeCursor = val.slice(0, cursorPos);
+    const hashMatch = textBeforeCursor.match(/(?:^|\s)#([\p{L}\p{N}_-]*)$/u);
+
+    if (hashMatch) {
+      setHashtagQuery(hashMatch[1]);
+      setSelectedIndex(0);
+    } else {
+      setHashtagQuery(null);
+    }
+  };
+
+  const applyAutocompleteTag = (tagName: string) => {
+    if (!textareaRef.current) return;
+    const textarea = textareaRef.current;
+    const cursorPos = textarea.selectionStart;
+    const textBeforeCursor = content.slice(0, cursorPos);
+    const textAfterCursor = content.slice(cursorPos);
+
+    const hashMatch = textBeforeCursor.match(/(?:^|\s)#([\p{L}\p{N}_-]*)$/u);
+    if (hashMatch) {
+      const matchIndex = hashMatch.index! + (hashMatch[0].startsWith(' ') ? 1 : 0);
+      const newText = content.slice(0, matchIndex) + `#${tagName} ` + textAfterCursor;
+      setContent(newText);
+      setHashtagQuery(null);
+      setTimeout(() => {
+        const nextPos = matchIndex + tagName.length + 2;
+        textarea.focus();
+        textarea.setSelectionRange(nextPos, nextPos);
+      }, 10);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Autocomplete navigation
+    if (hashtagQuery !== null && autocompleteSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev + 1) % autocompleteSuggestions.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev - 1 + autocompleteSuggestions.length) % autocompleteSuggestions.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        applyAutocompleteTag(autocompleteSuggestions[selectedIndex].name);
+        return;
+      }
+      if (e.key === 'Escape') {
+        setHashtagQuery(null);
+        return;
+      }
+    }
+
     // Ctrl+Enter or Cmd+Enter to submit note; Enter for single-line URL
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
@@ -230,30 +314,91 @@ export function QuickCapture({ onCaptured }: { onCaptured?: () => void }) {
       )}
     >
       <form onSubmit={handleSubmit} className="p-3.5 sm:p-4">
+        {/* URL Pill Badge if single-line URL detected */}
+        {isUrl && urlDomain && (
+          <div className="mb-2 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-semibold border border-rose-500/20">
+              <Globe className="h-3.5 w-3.5" />
+              <span>检测到网页链接 · 来源域名: <strong className="font-mono">{urlDomain}</strong></span>
+            </span>
+          </div>
+        )}
+
         <div className="relative">
           <textarea
             ref={textareaRef}
             rows={content.includes('\n') || content.length > 80 ? 3 : 2}
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder="粘贴 URL、记录思考备忘（输入 #标签 可自动归类），或拖入文件 / 粘贴截图..."
-            className="w-full resize-none bg-transparent text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none leading-relaxed"
+            placeholder="粘贴 URL、记录思考备忘（输入 #标签 可自动补全归类），或拖入文件 / 粘贴截图..."
+            className="w-full resize-none bg-transparent text-xs sm:text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none leading-relaxed pr-8"
           />
+
+          {/* Quick Clear Content Button */}
+          {content && (
+            <button
+              type="button"
+              onClick={() => {
+                setContent('');
+                setHashtagQuery(null);
+                textareaRef.current?.focus();
+              }}
+              className="absolute top-0 right-0 p-1 text-stone-400 hover:text-stone-600 rounded-lg"
+              title="清空输入"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Inline Hashtag Autocomplete Dropdown Popover */}
+          {hashtagQuery !== null && autocompleteSuggestions.length > 0 && (
+            <div className="absolute top-full mt-1 left-0 z-50 w-64 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-modal p-1 animate-in fade-in zoom-in-95 duration-100">
+              <div className="flex items-center justify-between px-2 py-1 text-[11px] font-bold text-stone-400 border-b border-stone-100 dark:border-stone-800 mb-1">
+                <span className="flex items-center gap-1 font-mono">
+                  <Sparkles className="h-3 w-3 text-rose-500" />
+                  <span>匹配已有标签</span>
+                </span>
+                <span className="text-[10px] font-mono">Enter 补全</span>
+              </div>
+              <div className="space-y-0.5">
+                {autocompleteSuggestions.map((t, idx) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => applyAutocompleteTag(t.name)}
+                    className={cn(
+                      'w-full text-left flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                      idx === selectedIndex
+                        ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold'
+                        : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+                    )}
+                  >
+                    <span>#{t.name}</span>
+                    {t.itemCount ? (
+                      <span className="text-[10px] text-stone-400 font-mono tabular-nums">
+                        {t.itemCount} 项
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Real-time Extracted Hashtag Badges */}
         {extractedTags.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap pt-1 pb-1 text-xs">
+          <div className="flex items-center gap-1.5 flex-wrap pt-1.5 pb-1 text-xs">
             <span className="text-[11px] text-stone-400 flex items-center gap-1 font-mono">
               <Hash className="h-3 w-3 text-rose-500" />
-              <span>检测到标签:</span>
+              <span>已提取标签:</span>
             </span>
             {extractedTags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 font-medium text-xs border border-rose-500/20"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 font-medium text-xs border border-rose-500/20 shadow-2xs"
               >
                 <span>#{tag}</span>
                 <button

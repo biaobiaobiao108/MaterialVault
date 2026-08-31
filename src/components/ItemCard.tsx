@@ -10,9 +10,13 @@ import {
   Archive,
   AlertTriangle,
   RefreshCw,
+  ExternalLink,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { Item } from '../lib/types';
 import { Badge } from './ui/Badge';
+import { useToast } from './ui/Toast';
 import { cn, formatDate } from '../lib/utils';
 
 export interface ItemCardProps {
@@ -36,6 +40,9 @@ export function ItemCard({
   onToggleOrganized,
   onArchive,
 }: ItemCardProps) {
+  const [copied, setCopied] = React.useState(false);
+  const toast = useToast();
+
   const getTypeIcon = () => {
     switch (item.type) {
       case 'url':
@@ -73,6 +80,19 @@ export function ItemCard({
     return null;
   };
 
+  const handleCopyLink = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const textToCopy = item.sourceUrl || item.contentText || item.title;
+    navigator.clipboard.writeText(textToCopy);
+    setCopied(true);
+    toast.success(item.sourceUrl ? '链接已复制到剪贴板' : '正文已复制到剪贴板');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const imageAsset = item.assets?.find(
+    (a) => a.kind === 'screenshot' || (a.kind === 'original' && a.mimeType.startsWith('image/'))
+  );
+
   const isOrganized = item.organizationStatus === 'organized';
   const isArchived = item.organizationStatus === 'archived';
 
@@ -106,7 +126,7 @@ export function ItemCard({
 
         {/* Card Main Body */}
         <div className="min-w-0 flex-1">
-          {/* Header Row: Type, Status, Domain, Date */}
+          {/* Header Row: Type, Status, Domain, Date, Quick Hover Tools */}
           <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-stone-500 dark:text-stone-400 mb-1.5">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="flex items-center gap-1.5 font-medium text-stone-700 dark:text-stone-300">
@@ -123,26 +143,69 @@ export function ItemCard({
               {getProcessingBadge()}
             </div>
 
-            <time dateTime={new Date(item.createdAt).toISOString()} className="text-[11px] font-mono tabular-nums text-stone-400">
-              {formatDate(item.createdAt)}
-            </time>
+            <div className="flex items-center gap-2">
+              {/* Quick Copy Link / Text button */}
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[11px] font-medium text-stone-500 hover:text-rose-600 dark:hover:text-rose-400 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-md"
+                title={item.sourceUrl ? '复制链接' : '复制正文'}
+              >
+                {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                <span>{copied ? '已复制' : '复制'}</span>
+              </button>
+
+              {/* Direct Open in new tab button */}
+              {item.sourceUrl && (
+                <a
+                  href={item.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-stone-400 hover:text-rose-600 rounded"
+                  title="在新标签页中打开原网页"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              )}
+
+              <time dateTime={new Date(item.createdAt).toISOString()} className="text-[11px] font-mono tabular-nums text-stone-400">
+                {formatDate(item.createdAt)}
+              </time>
+            </div>
           </div>
 
-          {/* Title */}
-          <h3 className="text-sm sm:text-base font-bold leading-snug text-stone-900 dark:text-stone-100 line-clamp-2 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
-            {item.title}
-          </h3>
+          {/* Title & Thumbnail Grid */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm sm:text-base font-bold leading-snug text-stone-900 dark:text-stone-100 line-clamp-2 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
+                {item.title}
+              </h3>
 
-          {/* Description snippet / Note text */}
-          {item.description ? (
-            <p className="mt-1.5 text-xs sm:text-sm text-stone-600 dark:text-stone-300 line-clamp-2 leading-relaxed">
-              {item.description}
-            </p>
-          ) : item.contentText ? (
-            <p className="mt-1.5 text-xs text-stone-500 dark:text-stone-400 line-clamp-2 font-mono leading-relaxed bg-stone-50 dark:bg-stone-800/40 p-2 rounded-lg border border-stone-100 dark:border-stone-800/50">
-              {item.contentText.slice(0, 160)}
-            </p>
-          ) : null}
+              {/* Description snippet / Note text */}
+              {item.description ? (
+                <p className="mt-1.5 text-xs sm:text-sm text-stone-600 dark:text-stone-300 line-clamp-2 leading-relaxed">
+                  {item.description}
+                </p>
+              ) : item.contentText ? (
+                <p className="mt-1.5 text-xs text-stone-500 dark:text-stone-400 line-clamp-2 font-mono leading-relaxed bg-stone-50 dark:bg-stone-800/40 p-2 rounded-lg border border-stone-100 dark:border-stone-800/50">
+                  {item.contentText.slice(0, 160)}
+                </p>
+              ) : null}
+            </div>
+
+            {/* Thumbnail Preview for Images */}
+            {imageAsset && (
+              <div className="shrink-0 h-14 w-20 sm:h-16 sm:w-24 rounded-xl overflow-hidden border border-stone-200/80 dark:border-stone-800 bg-stone-100 dark:bg-stone-800 shadow-2xs">
+                <img
+                  src={`/api/assets/${imageAsset.id}`}
+                  alt={item.title}
+                  loading="lazy"
+                  className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200"
+                />
+              </div>
+            )}
+          </div>
 
           {/* Tags Badges with Tag Pivoting */}
           {item.tags && item.tags.length > 0 && (
