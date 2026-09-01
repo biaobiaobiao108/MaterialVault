@@ -6,7 +6,7 @@
 
 **专为视频创作者打造的：素材收件箱 + 网页与视频证据归档库 + 极速标签检索系统**
 
-[![Bun Version](https://img.shields.io/badge/Bun-1.2+-fbf0df?logo=bun)](https://bun.sh)
+[![Bun Version](https://img.shields.io/badge/Bun-1.4+-fbf0df?logo=bun)](https://bun.sh)
 [![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?logo=tailwind-css)](https://tailwindcss.com)
 [![SQLite FTS5](https://img.shields.io/badge/SQLite-FTS5-003B57?logo=sqlite)](https://sqlite.org)
